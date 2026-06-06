@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Računalništvo – AI Učni Pomočnik</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+  --accent: #4f8ef7; --accent2: #e05f7f; --accent3: #38d9a9;
+  --accent4: #f7c84f; --text: #e4e8f7; --text-muted: #8892b0;
+  --border: #2e3350; --q-color: #ffd166; --green: #38d9a9; --red: #e05f7f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text);
+  line-height: 1.6; font-size: 15px; display: flex; flex-direction: column; height: 100%; }
+
+header { background: linear-gradient(135deg, #1a1d27 0%, #0f1117 60%, #1a1d27 100%);
+  border-bottom: 1px solid var(--border); padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 8px; }
+.header-left h1 { font-size: 1.05rem; font-weight: 700; color: #fff; }
+.header-left h1 span { color: var(--accent); }
+.header-left p { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+.header-right { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+.progress-strip { background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 8px 18px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.progress-label { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+.progress-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 5px; min-width: 40px; }
+.progress-bar-fill { height: 5px; background: var(--accent3); border-radius: 4px; transition: width 0.4s; width: 0%; }
+.progress-stats { display: flex; gap: 10px; font-size: 0.7rem; }
+.ps-ok { color: var(--green); font-weight: 600; }
+.ps-skip { color: var(--text-muted); font-weight: 600; }
+.ps-total { color: var(--accent); font-weight: 600; }
+
+#chat-area { flex: 1; overflow-y: auto; padding: 18px;
+  display: flex; flex-direction: column; gap: 13px; scroll-behavior: smooth; }
+#chat-area::-webkit-scrollbar { width: 4px; }
+#chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.msg { display: flex; gap: 10px; max-width: 88%; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.msg.ai { align-self: flex-start; }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 0.95rem; flex-shrink: 0; margin-top: 2px; }
+.ai .msg-avatar { background: linear-gradient(135deg, var(--accent), #6fa3ff); }
+.user .msg-avatar { background: linear-gradient(135deg, var(--accent3), #5ae8c0); }
+.msg-bubble { padding: 12px 15px; border-radius: 14px; font-size: 0.88rem; line-height: 1.65; }
+.ai .msg-bubble { background: var(--surface); border: 1px solid var(--border);
+  border-top-left-radius: 4px; color: var(--text); }
+.user .msg-bubble { background: linear-gradient(135deg, #2a3a5c, #1e2d4a);
+  border: 1px solid rgba(79,142,247,0.3); border-top-right-radius: 4px; color: var(--text); }
+
+.msg-bubble.q-bubble { border-color: rgba(255,209,102,0.4); background: linear-gradient(135deg, #1e1d27, #22203a); }
+.q-label { font-size: 0.64rem; font-weight: 700; color: var(--q-color); text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.q-text { color: var(--q-color); font-weight: 600; font-size: 0.95rem; }
+.q-speaker { margin-top: 8px; font-size: 0.72rem; color: var(--text-muted); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; }
+.q-speaker:hover { color: var(--accent); }
+
+.msg-bubble.fb-ok { border-color: rgba(56,217,169,0.4); background: rgba(56,217,169,0.06); }
+.msg-bubble.fb-bad { border-color: rgba(224,95,127,0.3); background: rgba(224,95,127,0.05); }
+.msg-bubble.fb-partial { border-color: rgba(247,200,79,0.4); background: rgba(247,200,79,0.05); }
+.fb-title { font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.fb-ok .fb-title { color: var(--green); }
+.fb-bad .fb-title { color: var(--red); }
+.fb-partial .fb-title { color: var(--accent4); }
+.score-bar { width: 100%; height: 6px; background: var(--surface2); border-radius: 4px; margin: 4px 0 10px; overflow: hidden; }
+.score-bar-fill { height: 6px; border-radius: 4px; transition: width 0.5s ease; }
+.fb-body { font-size: 0.83rem; color: var(--text-muted); }
+.fb-body strong { color: var(--text); }
+.missing-list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.missing-chip { background: rgba(224,95,127,0.12); border: 1px solid rgba(224,95,127,0.3);
+  color: #f0889f; padding: 3px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+.covered-chip { background: rgba(56,217,169,0.12); border: 1px solid rgba(56,217,169,0.3);
+  color: #6fe3c0; padding: 3px 9px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; }
+.full-answer-toggle { margin-top: 10px; font-size: 0.74rem; color: var(--accent); cursor: pointer; font-weight: 600; }
+.full-answer { margin-top: 8px; padding: 10px 12px; background: var(--surface2); border-radius: 8px;
+  font-size: 0.8rem; white-space: pre-wrap; color: var(--text); display: none; max-height: 280px; overflow-y: auto; }
+.full-answer.show { display: block; }
+
+.typing-dots { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.typing-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted);
+  animation: bounce 1.2s infinite ease-in-out; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+#controls { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 18px; flex-shrink: 0; }
+
+/* Live transcript */
+#live-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 14px; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-muted);
+  min-height: 42px; display: none; align-items: center; gap: 8px; }
+#live-box.show { display: flex; }
+#live-box.listening { border-color: var(--red); }
+#live-text { flex: 1; color: var(--text); }
+.live-mic-pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--red);
+  animation: pulse-dot 1s infinite; flex-shrink: 0; }
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.3)} }
+
+.control-row { display: flex; gap: 10px; align-items: center; }
+.mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+#mic-btn { width: 54px; height: 54px; border-radius: 50%; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 1.35rem; transition: all 0.25s;
+  flex-shrink: 0; background: linear-gradient(135deg, var(--accent), #3a7de8); box-shadow: 0 4px 18px rgba(79,142,247,0.3); }
+#mic-btn:hover { transform: scale(1.06); }
+#mic-btn.recording { background: linear-gradient(135deg, var(--red), #c0375a);
+  box-shadow: 0 4px 20px rgba(224,95,127,0.5); animation: pulse 1.2s infinite; }
+#mic-btn.disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+@keyframes pulse { 0%,100%{box-shadow:0 4px 18px rgba(224,95,127,0.4)} 50%{box-shadow:0 4px 30px rgba(224,95,127,0.7)} }
+.mic-label { font-size: 0.68rem; color: var(--text-muted); }
+
+.text-input-wrap { flex: 1; position: relative; min-width: 0; }
+#text-input { width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 22px; padding: 11px 46px 11px 16px; color: var(--text);
+  font-family: 'Sora', sans-serif; font-size: 0.88rem; outline: none; resize: none; }
+#text-input:focus { border-color: var(--accent); }
+#text-input::placeholder { color: var(--text-muted); }
+#send-btn { position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+  background: var(--accent); border: none; color: #fff; width: 32px; height: 32px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+#send-btn:hover { background: #3a7de8; }
+
+.action-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.action-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  padding: 6px 14px; border-radius: 18px; font-family: 'Sora', sans-serif; font-size: 0.75rem;
+  font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.action-btn.primary:hover { background: #3a7de8; }
+.action-btn.success { background: rgba(56,217,169,0.15); border-color: rgba(56,217,169,0.4); color: var(--green); }
+.action-btn.success:hover { background: rgba(56,217,169,0.25); }
+
+#status-bar { font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; min-height: 14px;
+  display: flex; align-items: center; gap: 6px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+.status-dot.green { background: var(--green); animation: pulse-dot 2s infinite; }
+.status-dot.red { background: var(--red); animation: pulse-dot 1s infinite; }
+
+.stag { font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 8px;
+  text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; }
+.tag-vis { background: rgba(79,142,247,0.15); color: #4f8ef7; }
+.tag-iks { background: rgba(56,217,169,0.15); color: #38d9a9; }
+.tag-upn { background: rgba(247,200,79,0.15); color: #f7c84f; }
+.tag-rsa { background: rgba(224,95,127,0.15); color: #e05f7f; }
+.tag-ppb { background: rgba(168,90,220,0.15); color: #b87cee; }
+
+#voice-toggle { background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted);
+  padding: 5px 11px; border-radius: 14px; font-family: 'Sora', sans-serif; font-size: 0.7rem;
+  font-weight: 600; cursor: pointer; transition: all 0.2s; }
+#voice-toggle.on { background: rgba(56,217,169,0.15); border-color: rgba(56,217,169,0.4); color: var(--green); }
+
+/* Start screen */
+#start-screen { position: fixed; inset: 0; background: rgba(15,17,23,0.97);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+  backdrop-filter: blur(4px); overflow-y: auto; padding: 20px; }
+.start-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  padding: 32px 28px; max-width: 460px; width: 100%; text-align: center; }
+.start-card h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
+.start-card h2 span { color: var(--accent); }
+.start-card .sub { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 22px; }
+.start-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.start-option { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 16px; cursor: pointer; transition: all 0.2s; text-align: left;
+  display: flex; align-items: center; gap: 12px; }
+.start-option:hover { border-color: var(--accent); }
+.start-option.selected { border-color: var(--accent); background: rgba(79,142,247,0.08); }
+.start-option .opt-icon { font-size: 1.3rem; }
+.start-option .opt-text strong { display: block; font-size: 0.88rem; }
+.start-option .opt-text span { font-size: 0.73rem; color: var(--text-muted); }
+.test-voice-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 18px; border-radius: 20px; font-family: 'Sora', sans-serif; font-size: 0.82rem;
+  font-weight: 600; cursor: pointer; margin-bottom: 12px; width: 100%; transition: all 0.2s; }
+.test-voice-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+.start-go-btn { background: var(--accent); border: none; color: #fff; padding: 14px 40px;
+  border-radius: 30px; font-family: 'Sora', sans-serif; font-size: 1rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; width: 100%; }
+.start-go-btn:hover { background: #3a7de8; }
+.browser-note { background: rgba(247,200,79,0.08); border: 1px solid rgba(247,200,79,0.25);
+  border-radius: 10px; padding: 10px 14px; font-size: 0.74rem; color: var(--accent4);
+  margin-top: 14px; line-height: 1.5; text-align: left; }
+
+.voice-dropdown { width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 12px; border-radius: 10px; font-family: 'Sora', sans-serif;
+  font-size: 0.84rem; outline: none; cursor: pointer; }
+.voice-dropdown:focus { border-color: var(--accent); }
+
+#settings-modal { position: fixed; inset: 0; background: rgba(15,17,23,0.97);
+  display: flex; align-items: center; justify-content: center; z-index: 300;
+  backdrop-filter: blur(4px); overflow-y: auto; padding: 20px; }
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  padding: 28px 26px; max-width: 440px; width: 100%; }
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <div class="start-card">
+    <div style="font-size:2.8rem;margin-bottom:10px;">🎓</div>
+    <h2>AI Učni <span>Pomočnik</span></h2>
+    <div class="sub">Glasovni pomočnik za maturo iz računalništva.<br>Postavi ti vprašanje, posluša tvoj odgovor in ti pove, kaj si izpustil.</div>
+
+    <div class="start-options">
+      <div class="start-option selected" onclick="selectSection('all', this)">
+        <span class="opt-icon">📚</span><div class="opt-text"><strong>Vsa vprašanja (79)</strong><span>VIS, IKS, UPN, RSA, PPB</span></div></div>
+      <div class="start-option" onclick="selectSection('vis', this)">
+        <span class="opt-icon">💻</span><div class="opt-text"><strong>VIS EKI VOS (17)</strong><span>Strojna oprema</span></div></div>
+      <div class="start-option" onclick="selectSection('iks', this)">
+        <span class="opt-icon">🌐</span><div class="opt-text"><strong>IKS (10)</strong><span>Omrežja</span></div></div>
+      <div class="start-option" onclick="selectSection('upn', this)">
+        <span class="opt-icon">⌨️</span><div class="opt-text"><strong>UPN (23)</strong><span>Programiranje C++</span></div></div>
+      <div class="start-option" onclick="selectSection('rsa', this)">
+        <span class="opt-icon">🌍</span><div class="opt-text"><strong>RSA (15)</strong><span>Spletne aplikacije</span></div></div>
+      <div class="start-option" onclick="selectSection('ppb', this)">
+        <span class="opt-icon">🗄️</span><div class="opt-text"><strong>PPB (14)</strong><span>Podatkovne baze</span></div></div>
+    </div>
+
+    <div style="margin-bottom:12px;text-align:left;">
+      <label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:5px;">🎙️ Glas pomočnika</label>
+      <select id="voice-select-start" onchange="onVoiceChange(this.value)" class="voice-dropdown"></select>
+    </div>
+    <button class="test-voice-btn" onclick="testVoice()">🔊 Preizkusi glas (klikni)</button>
+    <button class="start-go-btn" onclick="startSession()">Začni učenje 🎙️</button>
+    <div class="browser-note" id="browser-note">
+      💡 <strong>Nasvet:</strong> Za govorni vnos uporabi <strong>Google Chrome</strong> na računalniku ali telefonu. Če glasu ne slišiš, preveri glasnost in da zavihek ni utišan. Vedno lahko tudi <strong>tipkaš</strong> odgovore.
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal" style="display:none;">
+  <div class="settings-card">
+    <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:4px;">⚙️ Nastavitve glasu</h3>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:18px;">Izberi glas in hitrost branja. Slovenski glasovi so označeni z 🇸🇮.</p>
+
+    <label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:5px;">Glas</label>
+    <select id="voice-select" onchange="onVoiceChange(this.value)" class="voice-dropdown" style="margin-bottom:16px;"></select>
+
+    <label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:5px;">Hitrost branja: <span id="rate-label">0.95×</span></label>
+    <input type="range" id="rate-slider" min="0.6" max="1.3" step="0.05" value="0.95"
+      oninput="onRateChange(this.value)" style="width:100%;margin-bottom:18px;accent-color:var(--accent);">
+
+    <div style="display:flex;gap:10px;">
+      <button class="test-voice-btn" style="margin:0;flex:1;" onclick="testVoice()">🔊 Preizkusi</button>
+      <button class="start-go-btn" style="flex:1;" onclick="closeSettings()">Zapri</button>
+    </div>
+    <div style="font-size:0.72rem;color:var(--text-muted);margin-top:14px;line-height:1.5;">
+      💡 Če ni slovenskega glasu, lahko izbereš hrvaškega ali srbskega – izgovorjava bo zelo podobna. Število glasov je odvisno od tvoje naprave in brskalnika.
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="header-left">
+    <h1>🎓 AI <span>Pomočnik</span></h1>
+    <p>Računalništvo – Poklicna matura</p>
+  </div>
+  <div class="header-right">
+    <button id="voice-toggle" class="on" onclick="toggleVoice()">🔊 Glas</button>
+    <button class="action-btn" onclick="openSettings()" id="btn-settings">⚙️</button>
+    <button class="action-btn" onclick="repeatQuestion()" id="btn-repeat" style="display:none">🔁 Ponovi</button>
+    <button class="action-btn" onclick="skipQuestion()" id="btn-skip" style="display:none">⏭ Preskoči</button>
+    <button class="action-btn" onclick="showAnswer()" id="btn-show-answer" style="display:none">💡 Odgovor</button>
+  </div>
+</header>
+
+<div class="progress-strip">
+  <span class="progress-label">Napredek</span>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="prog-fill"></div></div>
+  <div class="progress-stats">
+    <span class="ps-ok" id="prog-ok">0 ✓</span>
+    <span class="ps-skip" id="prog-skip">0 →</span>
+    <span class="ps-total" id="prog-total">/ 0</span>
+  </div>
+</div>
+
+<div id="chat-area"></div>
+
+<div id="controls">
+  <div id="live-box"><span class="live-mic-pulse"></span><span id="live-text">Poslušam...</span></div>
+  <div class="control-row">
+    <div class="mic-wrap">
+      <button id="mic-btn" onclick="toggleMic()">🎙️</button>
+      <div class="mic-label" id="mic-label">Govori</div>
+    </div>
+    <div class="text-input-wrap">
+      <textarea id="text-input" placeholder="...ali tipkaj cel odgovor in pritisni Enter" rows="2"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTextAnswer();}"></textarea>
+      <button id="send-btn" onclick="sendTextAnswer()">↑</button>
+    </div>
+  </div>
+  <div class="action-row" id="action-row"></div>
+  <div id="status-bar"><span class="status-dot" id="status-dot"></span><span id="status-text">Izberi sklop za začetek</span></div>
+</div>
+
+<script>
+const ALL_QA = [{"id": 1, "s": "vis", "q": "Kaj je BIOS, kje se nahaja in kako ga konfiguriramo? Kakšna je njegova vloga v računalniku?", "a": "A   Pomen kratice BIOS 4 t.\nBIOS pomeni Basic Input/Output System (osnovni vhodno-izhodni sistem). Gre za firmware oziroma osnovni program, ki omogoča komunikacijo med strojno opremo in operacijskim sistemom računalnika.\nB   Kje se nahaja, kako ga konfiguriramo 4 t.\nBIOS se nahaja na posebnem čipu na matični plošči, običajno v obliki ROM ali flash pomnilnika.\nKonfiguriramo ga ob zagonu računalnika s pritiskom tipke (odvisno od proizvajalca):\nDelete (Del)\nF2\nF10\nEsc\nV BIOS-u nastavljamo: datum in čas, vrstni red zagona (boot order), nastavitve procesorja, RAM-a in diskov ter varnostne nastavitve.\nC   Vloga BIOS v računalniku 5 t.\nPreverjanje strojne opreme (POST) – Power-On Self Test preveri procesor, pomnilnik, tipkovnico, diske itd.\nInicializacija strojne opreme – pripravi komponente za delovanje\nZagon operacijskega sistema\nOsnovna komunikacija med strojno in programsko opremo (tipkovnica, miška)\nShranjevanje sistemskih nastavitev – čas, datum, konfiguracija naprav"}, {"id": 2, "s": "vis", "q": "Kaj je USB, za kaj se uporablja, kakšne so njegove prednosti?", "a": "A   Pomen kratice USB 4 t.\nUSB pomeni Universal Serial Bus (univerzalno serijsko vodilo). Je standard za povezovanje različnih naprav z računalnikom.\nB   Za kaj se uporablja 4 t.\nPovezovanje zunanjih naprav (tipkovnica, miška, USB ključ, kamera)\nPrenos podatkov\nNapajanje oziroma polnjenje naprav\nC   Prednosti 5 t.\nEnostavna uporaba – naprave priključimo hitro in preprosto\nPlug and Play – večina naprav deluje takoj po priklopu\nHitri prenosi podatkov – USB 3.1 je najhitrejši\nMožnost napajanja naprav\nUniverzalnost – podpira veliko različnih naprav"}, {"id": 3, "s": "vis", "q": "Kaj je trdi disk (HDD), kako je sestavljen in opišite delovanje.", "a": "A   Kaj je trdi disk 4 t.\nHDD (Hard Disk Drive) je magnetni shranjevalni medij za trajno shranjevanje podatkov. Na njem so shranjeni operacijski sistem, programi in uporabniški podatki.\nB   Sestava 4 t.\nMagnetne plošče – krožne plošče, na katere se zapisujejo podatki\nBralne/pisalne glave – berejo in zapisujejo podatke\nMotor (spindle motor) – vrti plošče z veliko hitrostjo\nKrmilna elektronika – upravlja delovanje diska in komunikacijo\nC   Delovanje 5 t.\nKrmilnik usmeri bralno/pisalno glavo na ustrezen del plošče\nPlošče se hitro vrtijo (5400 ali 7200 obr/min)\nGlava ne dotika plošče, ampak lebdi blizu površine\nPodatki so zapisani v obliki magnetnih polaritet (0 in 1)\nOb branju glava zazna magnetne spremembe in jih pretvori v digitalne podatke"}, {"id": 4, "s": "vis", "q": "Opišite pomnilnik. Kakšna je njegova vloga v računalniku? Katere vrste pomnilnika poznate?", "a": "A   Opis pomnilnika 4 t.\nPomnilnik je del računalniškega sistema za shranjevanje podatkov in programov. Omogoča, da računalnik hrani informacije začasno ali trajno.\nB   Vloga pomnilnika 4 t.\nShranjevanje podatkov in programov med delovanjem\nOmogočanje hitrega dostopa do podatkov za procesor\nZačasno hranjenje podatkov, ki jih računalnik trenutno uporablja\nOmogočanje nemotenega delovanja programov in OS\nC   Vrste pomnilnika 5 t.\nRAM (delovni pomnilnik) – začasen, izgubi podatke ob izklopu\nROM (bralni pomnilnik) – trajni, vsebuje sistemske programe (BIOS)\nZunanji (sekundarni) pomnilnik – HDD, SSD, USB ključ\nPredpomnilnik (cache) – zelo hiter pomnilnik znotraj procesorja"}, {"id": 5, "s": "vis", "q": "Opišite predpomnilnik centralne procesne enote. Kaj je zanj značilno, kakšna je njegova vloga?", "a": "A   Kaj je predpomnilnik 4 t.\nPredpomnilnik je zelo hiter pomnilnik v ali blizu CPE. Začasno shranjuje pogosto uporabljene podatke in ukaze, da jih procesor hitreje doseže kot iz RAM-a.\nB   Značilnosti 4 t.\nJe zelo hiter, hitrejši od RAM-a\nIma majhno kapaciteto\nJe dražji\nRazdeljen na nivoje: L1, L2, L3 (L1 najhitrejši, a najmanjši)\nC   Vloga predpomnilnika 5 t.\nPospeševanje delovanja procesorja\nZmanjšanje časa dostopa do podatkov\nShranjevanje pogosto uporabljenih podatkov in ukazov\nZmanjšanje obremenitve RAM-a\nIzboljšanje splošne zmogljivosti računalnika"}, {"id": 6, "s": "vis", "q": "Opišite centralno procesno enoto (CPE), kateri so njeni deli in kakšne so njene funkcije. Kakšna je prednost več-jedrnih CPE?", "a": "A   Kaj je CPE, njeni deli 5 t.\nCPE (centralna procesna enota) oz. procesor je glavni del računalnika, ki izvaja ukaze programov in obdeluje podatke – »možgani računalnika«.\nGlavni deli:\nALU (Aritmetično-logična enota) – matematične in logične operacije\nKrmilna enota (CU) – nadzoruje delovanje in usmerja ukaze\nRegistri – hiter notranji pomnilnik za začasne podatke\nPredpomnilnik – hiter pomnilnik za pogosto uporabljene podatke\nJedra procesorja – enote za obdelavo podatkov\nB   Funkcije CPE 4 t.\nIzvajanje programskih ukazov\nObdelava podatkov\nIzvajanje matematičnih in logičnih operacij\nNadzor in usklajevanje delovanja других komponent\nC   Prednost več-jedrnih CPE 4 t.\nHitrejše izvajanje več programov istočasno\nBoljša zmogljivost pri zahtevnih opravilih\nUčinkovitejša večopravilnost (multitasking)\nManjša obremenitev posameznega jedra in boljša energijska učinkovitost"}, {"id": 7, "s": "vis", "q": "Kaj je bliskovni (Flash) pomnilnik, kaj je zanj značilno? Kako deluje, v katerih komponentah se uporablja?", "a": "A   Kaj je flash pomnilnik, značilnosti 4 t.\nBliskovni (Flash) pomnilnik je vrsta elektronskega pomnilnika za trajno shranjevanje podatkov – podatke ohrani tudi po izklopu napajanja.\nZnačilnosti: hitro branje/zapisovanje, brez gibljivih delov, majhna poraba energije, tiho delovanje, odporen na tresljaje.\nB   Delovanje 5 t.\nDeluje s pomočjo elektronskih celic (tranzistorjev), ki hranijo električni naboj.\nPodatki se zapisujejo v obliki binarnih vrednosti (0 in 1)\nElektrični naboj v celici predstavlja vrednost\nCelice hranijo podatke brez napajanja\nBranje in zapisovanje potekata elektronsko, brez mehanskega premikanja\nDelovanje je hitrejše kot pri HDD\nC   Kje se uporablja 4 t.\nSSD diski\nUSB ključi\nPomnilniške kartice (SD, microSD)\nMobilni telefoni\nBIOS/UEFI čipi"}, {"id": 8, "s": "vis", "q": "Kakšne vrste zaslonov poznate? Opišite princip delovanja zaslonov s tekočimi kristali.", "a": "A   Vrste zaslonov 4 t.\nCRT – katodni zasloni\nLCD – zasloni s tekočimi kristali\nLED – izboljšani LCD zasloni z LED osvetlitvijo\nOLED – organske LED diode (vsak piksel sveti sam)\nPlazemski zasloni\nB   Delovanje zaslonov 9 t.\nSlika je sestavljena iz slikovnih pik (pikslov), ki skupaj tvorijo celotno sliko.\nCRT: Elektronski žarek iz katodne cevi zadene fosforno površino, ki zasvetli in tvori sliko.\nPlazemski zaslon: Majhne celice z inertnim plinom; električni tok plin pretvori v plazmo, ki oddaja UV svetlobo → ta vzbudi fosforne premaze in ustvari barvo.\nLCD (tekoči kristali): Tekoči kristali nadzorujejo prehod svetlobe iz ozadja (backlight). Kristali sami ne svetijo, ampak prepuščajo ali blokirajo svetlobo → nastane slika iz pikslov.\nLED: Izboljšan LCD, kjer se za osvetlitev ozadja uporabljajo LED diode – boljša svetlost, kontrast in manjša poraba energije."}, {"id": 9, "s": "vis", "q": "Kaj je matična plošča? Kakšna je njena vloga, kateri so njeni najpomembnejši deli?", "a": "A   Kaj je matična plošča 4 t.\nMatična plošča (motherboard) je glavno tiskano vezje v računalniku, na katero so priključene vse ključne komponente. Omogoča fizično povezavo in komunikacijo med vsemi deli računalnika.\nB   Vloga matične plošče 4 t.\nPovezovanje vseh komponent računalnika\nOmogočanje komunikacije med procesorjem, pomnilnikom in drugimi napravami\nRazdeljevanje električne energije komponentam\nOmogočanje delovanja računalniškega sistema kot celote\nC   Najpomembnejši deli 5 t.\nCPU socket – podnožek za procesor\nReže za RAM – za delovni pomnilnik\nČipovje (chipset) – upravlja komunikacijo med komponentami\nPCIe reže – za grafične in razširitvene kartice\nPriključki (SATA, M.2, USB, napajanje) – za diske in naprave\nBIOS čip"}, {"id": 10, "s": "vis", "q": "Kakšne ukrepe je potrebno upoštevati za varno delo z računalniškimi komponentami? Kako preprečimo poškodbe zaradi statične elektrike?", "a": "A   Delovni prostor 4 t.\nDelovni prostor mora biti čist, suh in dobro osvetljen. Na mizi ne sme biti tekočin ali hrane. Komponente sestavljamo na neprevodni podlagi. Računalnik mora biti izklopljen in odklopljen iz omrežja.\nB   Obleka in obutev 4 t.\nNosimo oblačila iz naravnih materialov (bombaž)\nIzogibamo se volnenim in sintetičnim oblačilom\nObutev z gumijastim podplatom\nNe nosimo ohlapnega nakita (ure, prstani, zapestnice)\nC   Ukrepi proti statični elektriki 5 t.\nAntistatična zapestnica (ESD) – priključena na ozemljitev\nAntistatična podloga (ESD mat)\nPred delom se ozemljimo (dotik kovinskega ohišja)\nKomponente shranjujemo v antistatičnih vrečkah\nIzogibamo se drgnjenju materialov, ki ustvarjajo statiko"}, {"id": 11, "s": "vis", "q": "Kaj je optični pogon in kakšne vrste poznate? Kaj je značilno za DVD?", "a": "A   Kaj je optični pogon 4 t.\nOptični pogon je naprava za branje/zapisovanje podatkov na optične nosilce s pomočjo laserskega žarka. Podatki so zapisani v obliki vdolbinic in ravnih delov. Uporablja se za predvajanje glasbe/filmov, namestitev programov, shranjevanje podatkov.\nB   Vrste optičnih pogonov 4 t.\nCD-ROM – samo branje\nCD-R – enkratno zapisovanje\nCD-RW – večkratno zapisovanje\nDVD-ROM – branje DVD\nDVD-RW – branje in zapisovanje\nBlu-ray – branje/zapisovanje visoke ločljivosti\nC   Značilnosti DVD 5 t.\nVrste DVD: DVD-ROM (samo branje), DVD-R/+R (enkratno), DVD-RW/+RW/RAM (večkratno).\nZnačilnosti: laserski žarek rdeče barve, večja kapaciteta kot CD (4,7 GB – 17 GB), hitrejši prenos kot CD."}, {"id": 12, "s": "vis", "q": "Naštejte standarde za razširitvene reže na matični plošči in jih primerjajte. V kakšne reže vgrajujemo grafične kartice?", "a": "A   Standardi za kartice / reže 4 t.\nISA – star standard\nPCI – naslednik ISA\nAGP – za grafične kartice\nPCI Express (PCIe) – sodoben standard\nB   Primerjava standardov 7 t.\nStandardHitrostNamenStatus\nISANajnižjaSplošnoZastarel\nPCIZmernaZvočne, mrežne karticeZastarel\nAGPVišjaGrafične karticeZastarel\nPCIeZelo visokaGPU, SSD, mrežneSodoben\nC   Reže za grafične kartice 2 t.\nDanes: PCI Express x16. V starejših računalnikih: AGP reže."}, {"id": 13, "s": "vis", "q": "Naštejte kazalne naprave. Kakšna je njihova funkcija, katere so najbolj razširjene?", "a": "A   Vrste kazalnih naprav 6 t.\nMiška\nSledilna ploščica (touchpad)\nSledilna kroglica (trackball)\nIgralna palica (joystick)\nZaslon na dotik (touchscreen)\nGrafična tablica\nB   Funkcija 4 t.\nPremikanje kazalca po zaslonu\nIzbiranje ikon, datotek in ukazov\nKlikanje in potrjevanje ukazov\nRisanje, igranje iger, delo v programih\nC   Najbolj razširjene 3 t.\nMiška – namizni računalniki\nSledilna ploščica (touchpad) – prenosniki\nZaslon na dotik – telefoni, tablice"}, {"id": 14, "s": "vis", "q": "Kaj je SSD pogon, kaj ga sestavlja? Opišite vlogo krmilnika in predpomnilnika.", "a": "A   Kaj je SSD, sestavni deli 4 t.\nSSD (Solid State Drive) je shranjevalna naprava, ki uporablja flash pomnilnik brez gibljivih delov → hitrejši, tišji, manj občutljiv na udarce, porabi manj energije.\nSestava: pomnilniški čipi NAND Flash, krmilnik, predpomnilnik (cache), vmesnik (SATA ali NVMe/PCIe).\nB   Vloga krmilnika 5 t.\nUpravljanje branja in zapisovanja podatkov\nKomunikacija med računalnikom in SSD-jem\nRazporejanje podatkov po pomnilniških celicah\nEnakomerna obraba celic (wear leveling)\nUpravljanje napak in popravljanje podatkov\nC   Vloga predpomnilnika 4 t.\nZačasno shranjevanje pogosto uporabljenih podatkov\nPospeševanje branja in zapisovanja\nZmanjšanje zakasnitev pri dostopu do podatkov"}, {"id": 15, "s": "vis", "q": "Kaj je mikrokrmilnik, kaj je zanj značilno? Kakšne so razlike v primerjavi z mikroprocesorjem?", "a": "A   Kaj je mikrokrmilnik 4 t.\nMikrokrmilnik je integrirano vezje (čip), ki vsebuje: procesorsko enoto (CPU), pomnilnik (RAM in ROM/Flash) ter vhodno-izhodne enote (I/O). Gre za »mini računalnik na enem čipu«, namenjen krmiljenju naprav.\nB   Značilnosti in uporaba 4 t.\nMajhna fizična velikost, nizka poraba energije, nizki stroški, vgrajen pomnilnik in I/O vmesniki, deluje za specifične naloge.\nUporaba: gospodinjski aparati, avtomobilski sistemi, robotski sistemi, Arduino.\nC   Razlike proti mikroprocesorjem 5 t.\nMikrokrmilnikMikroprocesor\nCPU + RAM + ROM + I/O v enem čipuVsebuje samo CPU\nNamenjen specifičnim opravilomSplošna uporaba\nDeluje samostojnoPotrebuje zunanji RAM, ROM, I/O\nManj zmogljivZmogljivejši"}, {"id": 16, "s": "vis", "q": "Kaj je zvočna kartica, kakšna je njena vloga? Kaj vpliva na kakovost zajema in predvajanja zvoka?", "a": "A   Kaj je zvočna kartica, njena vloga 3 t.\nZvočna kartica je razširitvena ali integrirana komponenta za obdelavo zvoka. Vloga: pretvorba digitalnega signala v analogni (predvajanje) in analognega v digitalnega (snemanje). Omogoča vhod (mikrofon) in izhod (zvočniki, slušalke).\nB   Kakovost zajema zvoka (ADC) 5 t.\nFrekvenca vzorčenja – višja = natančnejši zajem (44,1 kHz, 48 kHz)\nBitna globina – več bitov = večja natančnost (16-bit, 24-bit)\nKakovost mikrofonov\nŠum in motnje v signalu\nKakovost ADC pretvornika\nC   Kakovost predvajanja zvoka (DAC) 5 t.\nKakovost DAC pretvornika\nFrekvenca vzorčenja predvajanja\nBitna globina zvoka\nKakovost ojačevalnika v zvočni kartici\nKakovost zvočnikov ali slušalk"}, {"id": 17, "s": "vis", "q": "Kaj je grafična kartica, kakšna je njena naloga? Kateri so njeni sestavni deli? Vrste grafičnih kartic.", "a": "A   Kaj je grafična kartica, njena naloga 4 t.\nGrafična kartica skrbi za obdelavo in izris grafike na zaslonu. Naloge: pretvorba podatkov v sliko, izris 2D/3D grafike, pospeševanje grafičnih izračunov, razbremenitev CPU.\nB   Sestavni deli 5 t.\nGPU – grafični procesor\nVRAM – video pomnilnik za teksture in slike\nPCB plošča – osnovno vezje\nHladilni sistem – ventilator ali hladilnik\nNapajalni priključki\nVmesniki za izhod slike (HDMI, DisplayPort, DVI)\nC   Vrste grafičnih kartic 4 t.\nIntegrirane – vgrajene v procesor/matično ploščo, manj zmogljive\nDiskretne (namenske) – ločene kartice z lastnim VRAM\nGaming – za igre in 3D grafiko\nProfesionalne (workstation) – za CAD, 3D modeliranje, video"}, {"id": 18, "s": "iks", "q": "Aktivni elementi računalniških mrež – stikalo.", "a": "A   Značilnosti aktivne opreme 3 t.\nAktivni elementi potrebujejo električno napajanje in aktivno obdelujejo podatke. Obdelujejo ali usmerjajo omrežni promet in lahko povečujejo domet omrežja.\nB   Kje naletimo na aktivne elemente 5 t.\nDostopni del (LAN) – stikala, dostopne točke\nDistribucijski del – usmerjevalniki, večja stikala\nJedro omrežja (core) – visoko zmogljivi usmerjevalniki\nBrezžični del – Wi-Fi dostopne točke\nPovezava med omrežji (WAN) – usmerjevalniki in modemi\nC   Vloga stikala 5 t.\nStikalo (switch) povezuje naprave v LAN. Vloga:\nSprejema podatkovne okvirje in jih posreduje pravim napravam\nUporablja MAC naslove za usmerjanje\nZmanjšuje nepotreben promet\nOmogoča hkratno komunikacijo več naprav\nPovečuje učinkovitost lokalnega omrežja"}, {"id": 19, "s": "iks", "q": "Aktivni elementi računalniških mrež – usmerjevalnik.", "a": "A   Vloga usmerjevalnika 3 t.\nUsmerjevalnik (router) je omrežna naprava, ki povezuje različna računalniška omrežja in usmerja podatkovni promet med njimi.\nB   Kje naletimo na aktivne elemente 5 t.\nDostopni del (LAN) – stikala, dostopne točke\nDistribucijski del – usmerjevalniki\nJedro omrežja – visoko zmogljivi usmerjevalniki\nWAN – usmerjevalniki in modemi\nC   Vloga usmerjevalnika (podrobno) 5 t.\nDoloča najboljšo pot za prenos podatkov (routing)\nPovezuje LAN z internetom (WAN)\nUporablja IP naslove za usmerjanje paketov\nOmogoča deljenje internetne povezave\nVključuje NAT, požarni zid"}, {"id": 20, "s": "iks", "q": "Pojasnite značilne topologije računalniških mrež.", "a": "A   Kaj je topologija omrežja 5 t.\nTopologija predstavlja fizično ali logično razporeditev naprav in povezav v omrežju. Ločimo fizično topologijo (dejanska povezava kablov) in logično topologijo (potek podatkov).\nB   Vrste topologij 3 t.\nVodilna (bus)\nZvezdna (star)\nObročna (ring)\nMrežna (mesh)\nDrevesna (tree)\nC   Zvezdna topologija (s stikalom) 5 t.\nVse naprave so povezane na eno centralno napravo (stikalo)\nKomunikacija poteka preko stikala\nOkvara ene naprave ne vpliva na druge\nEnostavno dodajanje ali odstranjevanje naprav\nVisoka učinkovitost, manj trkov kot pri vodilni topologiji"}, {"id": 21, "s": "iks", "q": "Naštejte in opišite žične prenosne medije (UTP, koaksialni, optični kabel).", "a": "A   Funkcija prenosnih medijev 3 t.\nPrenosni mediji prenašajo podatke med napravami. Prenašajo električne ali svetlobne signale ter povezujejo omrežne naprave.\nB   Primerjava medijev 5 t.\nMedijHitrostUporaba\nUTP (zvita parica)do 10 Gbit/s (Cat6a)LAN omrežja\nKoaksialni kabelZmernaKabelska TV, internet\nOptični kabel10–100+ Gbit/sHrbtenična omrežja, WAN\nC   Prenos podatkov z optičnim kablom 5 t.\nOddajnik pretvori električni signal v svetlobni (LED ali laser)\nSvetloba potuje skozi optično vlakno\nPopolni notranji odboj ohranja svetlobo znotraj vlakna\nSprejemnik pretvori svetlobo nazaj v električni signal\nPrednosti: velika hitrost, velike razdalje, odpornost na motnje, visoka varnost."}, {"id": 22, "s": "iks", "q": "Pojasnite ISO/OSI-referenčni model.", "a": "A   Kaj je OSI referenčni model 3 t.\nISO/OSI model (Open Systems Interconnection) je standardni referenčni model, ki opisuje, kako različni omrežni protokoli medsebojno delujejo. Razvila ga je organizacija ISO. Razdeljen je na 7 plasti, ki vsaka opravlja določeno funkcijo pri prenosu podatkov.\nB   7 plasti OSI modela 5 t.\n#PlastNaloga\n7AplikacijskaVmesnik za aplikacije (HTTP, FTP, SMTP)\n6PredstavitvenaKodiranje, kompresija, šifriranje\n5SejanskaVzpostavljanje in vzdrževanje sej\n4TransportnaZanesljiv prenos (TCP, UDP)\n3OmrežnaUsmerjanje paketov (IP)\n2Podatkovna povezavaMAC naslovi, okvirji (Ethernet)\n1FizičnaPrenos bitov po fizičnem mediju\nC   Uporaba manj plasti v praksi 5 t.\nDa. V praksi se pogosto uporablja TCP/IP model, ki ima samo 4 plasti:\nAplikacijska (7+6+5)\nTransportna (4)\nOmrežna (3)\nDostop do omrežja (2+1)\nOSI model je bolj teoretičen, TCP/IP pa praktično implementiran v internetu."}, {"id": 23, "s": "iks", "q": "Pojasnite TCP/IP-model in ga primerjajte z ISO/OSI.", "a": "A   Kaj je TCP/IP model 3 t.\nTCP/IP model je praktični omrežni model, na katerem temelji internet. Sestavljen je iz 4 plasti in opisuje, kako se podatki prenašajo med napravami.\nB   Razlike od OSI modela 5 t.\nTCP/IP (4 plasti)OSI (7 plasti)\nAplikacijskaAplikacijska + Predstavitvena + Sejanska\nTransportnaTransportna\nOmrežna (Internet)Omrežna\nDostop do omrežjaPodatkovna + Fizična\nTCP/IP je praktičen in implementiran v internetu; OSI je bolj teoretičen referenčni model.\nC   Plasti TCP/IP in njihova funkcija 5 t.\nAplikacijska plast – protokoli za aplikacije: HTTP, FTP, SMTP, DNS\nTransportna plast – zanesljiv prenos (TCP) ali hitri brez zagotovil (UDP)\nOmrežna plast (Internet) – usmerjanje paketov z IP protokolom\nDostop do omrežja – fizični prenos podatkov po kablu ali brezžično"}, {"id": 24, "s": "iks", "q": "Pojasnite naslavljanje po IPv4 in IPv6. Kako zapišemo IP-naslov? Kaj je maska omrežja?", "a": "A   Zapis IPv4 naslova 3 t.\nIPv4 naslov je sestavljen iz 32 bitov, zapisanih kot 4 okteti v desetiški obliki, ločeni s pikami.\nPrimer: 192.168.1.100\nVsak oktet: od 0 do 255"}, {"id": 25, "s": "iks", "q": "Razlika med hub, stikalom in usmerjevalnikom.", "a": "A   Delovanje stikala 4 t.\nStikalo (switch) deluje na 2. plasti (podatkovna povezava). Prepozna MAC naslove naprav in posreduje podatkovne okvirje samo pravi napravi – ne vsem. Zmanjšuje promet v omrežju.\nB   Delovanje usmerjevalnika 4 t.\nUsmerjevalnik (router) deluje na 3. plasti (omrežna). Prepozna IP naslove in usmerja pakete med različnimi omrežji. Omogoča dostop do interneta.\nC   Kdaj usmerjevalnik namesto stikala 5 t.\nNapravaPlastNaslovPošilja podatke\nHub1 (fizična)–Vsem (broadcast)\nStikalo2 (podatkovna)MACPravi napravi v LAN\nUsmerjevalnik3 (omrežna)IPMed različnimi omrežji\nUsmerjevalnik uporabimo, kadar moramo povezati dve različni omrežji (npr. LAN z internetom)."}, {"id": 26, "s": "iks", "q": "Osnovni pojmi v telekomunikacijah: prenosni medij, smernost, analogni/digitalni signal, serijski/paralelni prenos.", "a": "A   Pojem prenosnega medija 4 t.\nPrenosni medij je fizično sredstvo, po katerem se prenašajo podatki.\nLočimo:\nŽični mediji – UTP kabel, koaksialni kabel, optični kabel\nBrezžični mediji – radijski valovi (Wi-Fi, Bluetooth), infrardeča svetloba\nSmernost:\nSimplex – prenos samo v eno smer (npr. TV oddajanje)\nHalf-duplex – izmenično v obe smeri (npr. walkie-talkie)\nFull-duplex – hkrati v obe smeri (npr. telefon)\nB   Paralelni vs. serijski prenos 4 t.\nSerijski prenosParalelni prenos\nBiti se prenašajo enega za drugimVeč bitov hkrati po ločenih vodnikih\nEn vodnik, počasnejšiVeč vodnikov, hitrejši\nUSB, Ethernet, RS-232Stari tiskalniški port, PCI vodilo\nManj motenj, daljše razdaljeMožne motnje med vodniki\nC   Postopek prenosa analognega podatka kot serijskega signala 5 t.\nVzorčenje (sampling) – analogni signal merimo v rednih časovnih intervalih\nKvantizacija – vsako vzorčeno vrednost zaokrožimo na diskretno vrednost\nKodiranje – vrednost pretvorimo v binarne bite (0 in 1)\nSerijski prenos – bite pošljemo enega za drugim po vodniku\nDekodiranje – sprejemnik bite pretvori nazaj v analogni signal (DAC)"}, {"id": 27, "s": "iks", "q": "Pojasnite načine multipleksiranja prenosnih poti.", "a": "A   Zakaj multipleksiramo 5 t.\nMultipleksiranje je tehnika, ki omogoča prenos več signalov hkrati po enem prenosnem mediju.\nRazlogi:\nZmanjšanje stroškov infrastrukture\nBoljša izkoriščenost prenosnega medija\nVeč komunikacij hkrati po eni poti\nPovečanje skupne prenosne zmogljivosti\nEkonomičnost – ni potrebe po ločenih kablih za vsako zvezo\nB   Načini multipleksiranja 3 t.\nFDM (frekvenčni multipleks) – vsak kanal uporablja svojo frekvenco\nTDM (časovni multipleks) – vsak kanal dobi določen časovni interval\nWDM (valovnodolžinski multipleks) – za optična vlakna, vsak kanal ima svojo valovno dolžino\nC   Časovni multipleks (TDM) 5 t.\nPri TDM (Time Division Multiplexing) se prenosni medij razdeli na enake časovne intervale (reže).\nVsak kanal/vir dobi svojo časovno režo\nV svoji reži ima izključno pravico do prenosa\nMultiplekser na oddajni strani zbira podatke iz več virov\nDemultiplekser na sprejemni strani jih razdeli nazaj\nReže se menjavajo ciklično → vsak vir dobi čas po vrsti\nPrimer: 4 viri, vsak dobi ¼ celotnega časa, ciklično izmenično"}, {"id": 28, "s": "upn", "q": "Kaj je algoritem in katere so njegove lastnosti? Navedite primer.", "a": "A   Definicija algoritma 4 t.\nAlgoritem je natančno določeno zaporedje korakov (navodil), ki rešijo določen problem v končnem številu korakov. Je osnova vsakega računalniškega programa.\nB   Lastnosti in načini zapisa 5 t.\nLastnosti algoritma:\nDoločenost (determinizem) – vsak korak je natančno določen\nKončnost – algoritem se mora zaključiti v končnem številu korakov\nVhod – algoritem ima 0 ali več vhodnih podatkov\nIzhod – algoritem vrne vsaj en rezultat\nSplošnost – reši celotni razred problemov, ne samo posebnega primera\nNačini zapisa: psevdokoda, diagram poteka, naravni jezik, programska koda.\nC   Primer algoritma 5 t.\nAlgoritem za izračun vsote dveh števil:\nZAČETEK\nPreberi število A\nPreberi število B\nvsota = A + B\nIzpiši vsota\nKONEC\nPrimer sortiranja (Bubble sort): primerjaj sosednja elementa, zamenjaj ju, če sta v napačnem vrstnem redu; ponavljaj, dokler ni seznam urejen."}, {"id": 29, "s": "upn", "q": "Kaj je diagram poteka? Narišite in razložite gradnike. Pokažite na primeru.", "a": "A   Definicija diagrama poteka 3 t.\nDiagram poteka (flowchart) je grafični prikaz algoritma. Koraki algoritma so prikazani s standardiziranimi simboli, ki so med seboj povezani s puščicami, ki prikazujejo tok izvajanja.\nB   Gradniki in njihov pomen 5 t.\nSimbolOblikaPomen\nZačetek/KonecOvalna oblikaZačetek ali konec algoritma\nAkcijaPravokotnikIzvedba operacije ali prireditvenega stavka\nOdločitevRomb (diamant)Pogojno razvejišče (DA/NE)\nVhod/IzhodParalelogramBranje vhoda ali izpis izhoda\nPuščicePuščiceTok izvajanja\nC   Diagram poteka na primeru 6 t.\nPrimer: ali je število pozitivno?\n[ ZAČETEK ]\n↓\n[ Vnesi število A ]\n↓\n< A > 0? >\nDA ↓        ↓ NE\n[Izpiši  [Izpiši \"Ni\n\"Pozitivno\"] pozitivno\"]\n↓         ↓\n[ KONEC ]"}, {"id": 30, "s": "upn", "q": "Semantika, sintaksa in primer napake. Kaj je izvorna koda? Zakaj potrebujemo prevajalnik?", "a": "A   Definicija pojmov 4 t.\nSintaksa – pravila pisanja programske kode (gramatika programskega jezika). Določa, kako moramo zapisati ukaze.\nSemantika – pomen programske kode. Določa, kaj ukazi naredijo.\nIzvorna koda – besedilo programa, ki ga napiše programer v programskem jeziku (npr. C++, Java).\nB   Primer napake 4 t.\nSintaktična napaka (prevajalnik jo zazna):\nint x = 5   // manjka podpičje ; → sintaktična napaka\nSemantična napaka (logična napaka, prevajalnik je ne zazna):\nint starost = -5;  // koda je sintaktično pravilna, a negativna\n// starost nima smisla → semantična napaka"}, {"id": 31, "s": "upn", "q": "Razlike med prevajanjem (kompajliranjem) in tolmačenjem (interpretiranjem).", "a": "A   Razlike, prednosti in slabosti 4 t.\nPrevajanje (compiler)Tolmačenje (interpreter)\nKdaj se prevedeEnkrat pred izvajanjemVrstico po vrstico med izvajanjem\nHitrost izvajanjaHitrejšePočasnejše\nPrimerC, C++, JavaPython, JavaScript, PHP\nPrednostHitrost, optimizacijaLažje razhroščevanje\nB   Definicija pojmov 4 t.\nPrevajanje – pretvorba celotne izvorne kode v strojno kodo naenkrat\nProgram – zaporedje ukazov, ki jih računalnik izvaja\nProgramska koda – ukazi, zapisani v programskem jeziku\nIzvorna koda – original, berljiv zapis programa, ki ga napiše programer\nC   Postopek prevajanja 6 t.\nLeksična analiza – prevajalnik razdeli kodo na žetone (tokens)\nSintaktična analiza – preveri pravilnost gramatike\nSemantična analiza – preveri pomen (tipi, deklaracije)\nOptimizacija – izboljšanje kode za hitrejše izvajanje\nGeneriranje strojne kode – ustvari izvršljivo datoteko (.exe)\nPovezovanje (linking) – poveže knjižnice in module"}, {"id": 32, "s": "upn", "q": "Zgradba programa v C/C++. Napišite strukturo programa. Kaj so zaglavne datoteke?", "a": "A   Definicija programa 4 t.\nProgram je zaporedje ukazov, ki jih računalnik izvaja, da reši določen problem. V C/C++ je program sestavljen iz funkcij, od katerih je main() obvezna – to je vstopna točka programa.\nB   Struktura programa v C++ 6 t.\n#include <iostream>    // vključimo knjižnico\nusing namespace std;  // uporaba standardnega imenskega prostora\nint main() {          // glavna funkcija – vstopna točka\nint x = 5;        // deklaracija spremenljivke\ncout << \"Vrednost: \" << x << endl;  // izpis\nreturn 0;         // zaključek programa\n}"}, {"id": 33, "s": "upn", "q": "Kaj so spremenljivke in lastnosti? Deklaracija, definicija in inicializacija.", "a": "A   Opis spremenljivke 4 t.\nSpremenljivka je poimenovano mesto v pomnilniku, ki hrani vrednost določenega tipa. Lastnosti: ima ime, podatkovni tip, vrednost in pomnilniški naslov.\nB   Deklaracija spremenljivke 4 t.\nDeklaracija – pove prevajalnik, da spremenljivka obstaja (tip in ime):\nint x;       // deklaracija – rezerviramo prostor za int"}, {"id": 34, "s": "upn", "q": "Kaj je prireditveni stavek? Tri primere in operatorja ++ in --.", "a": "A   Opis prireditvenega stavka 4 t.\nPrireditveni stavek dodeli vrednost spremenljivki. Operator je =. Leva stran je spremenljivka, desna stran je izraz, katerega vrednost se shrani v spremenljivko.\nB   Trije primeri 6 t.\n// 1. Enostavna prirejditev vrednosti\nint x = 10;\n// 2. Prirejditev izračunanega rezultata\nint vsota = a + b;\n// 3. Prirejditev z izkoriščanjem prejšnje vrednosti\nx = x + 5;   // poveča x za 5 (ali krajše: x += 5)"}, {"id": 35, "s": "upn", "q": "Enostavni podatkovni tipi v C/C++ s primeri. Kako je s tabelami/polji?", "a": "A   Podatkovni tipi 6 t.\nTipOpisPrimer vrednosti\nintCelo število5, -3, 0\nfloatDecimalno število (manj natančno)3.14f\ndoubleDecimalno število (bolj natančno)3.14159\ncharEn znak'A', '5'\nboolLogična vrednosttrue / false\nstringNiz znakov\"Pozdrav\"\nB   Primer deklaracije in inicializacije 4 t.\nint starost = 18;\ndouble cena = 9.99;\nchar ocena = 'A';\nbool jePolnoleten = true;\nstring ime = \"Maja\";"}, {"id": 36, "s": "upn", "q": "Aritmetični operatorji. Celoštevilčno deljenje, ostanek. Problem deljenja z 0.", "a": "A   Aritmetični operatorji 5 t.\nOperatorOpisPrimer\n+Seštevanje5 + 3 = 8\n-Odštevanje5 - 3 = 2\n*Množenje5 * 3 = 15\n/Deljenje10 / 3 = 3 (int) ali 3.33 (float)\n%Ostanek pri deljenju (modulo)10 % 3 = 1\nB   Celoštevilčno deljenje in ostanek 6 t.\nint a = 10, b = 3;\n// Celoštevilčno deljenje (rezultat je int brez decimalk)\nint kolicnik = a / b;   // = 3 (ne 3.33!)\n// Ostanek pri deljenju (modulo)\nint ostanek = a % b;    // = 1 (ker 10 = 3×3 + 1)\n// Primer uporabe modulo – ali je število sodo?\nif (x % 2 == 0) cout << \"sodo\";"}, {"id": 37, "s": "upn", "q": "Sintaksa stavka IF–ELSE. Primer in gnezdeni IF.", "a": "A   Sintaksa 4 t.\nif (pogoj) {\n// ukazi, če je pogoj resničen\n} else {\n// ukazi, če je pogoj neresničen\n}"}, {"id": 38, "s": "upn", "q": "Sintaksa stavka SWITCH. Primer, delovanje, razlika z IF.", "a": "A   Sintaksa 4 t.\nswitch (izraz) {\ncase vrednost1:\n// ukazi\nbreak;\ncase vrednost2:\n// ukazi\nbreak;\ndefault:\n// ukazi, če se nič ne ujema\n}"}, {"id": 39, "s": "upn", "q": "Pogojni stavek. Primerjalni in logični operatorji.", "a": "A   Opis pogojnega stavka 5 t.\nPogojni stavek (if) izvede določene ukaze samo, če je pogoj resničen (TRUE). Pogoj je logični izraz, ki vrne TRUE ali FALSE.\nB   Primerjalni operatorji 6 t.\nOperatorPomenPrimer\n==Enakox == 5\n!=Ni enakox != 5\n<Manjšex < 5\n>Večjex > 5\n<=Manjše ali enakox <= 5\n>=Večje ali enakox >= 5\nC   Logični operatorji 3 t.\nOperatorPomenPrimer\n&&IN (AND) – oba pogoja resx > 0 && x < 10\n||ALI (OR) – vsaj eden resničenx == 1 || x == 2\n!NE (NOT) – negacija!(x == 5)"}, {"id": 40, "s": "upn", "q": "Sintaksa stavkov WHILE in DO-WHILE. Primer za oba in razlika med njima.", "a": "A   Sintaksa 4 t.\n// WHILE – preveri pogoj PRED izvedbo\nwhile (pogoj) {\n// ukazi\n}\n// DO-WHILE – preveri pogoj PO izvedbi\ndo {\n// ukazi\n} while (pogoj);"}, {"id": 41, "s": "upn", "q": "Zgradba FOR zanke in delovanje. Neskončna FOR zanka.", "a": "A   Sintaksa 4 t.\nfor (inicializacija; pogoj; korak) {\n// ukazi\n}\nInicializacija – nastavi števec pred zanko\nPogoj – preveri se pred vsako iteracijo; če FALSE, zanka konča\nKorak – posodobi števec po vsaki iteraciji\nB   Primer uporabe 6 t.\n// Izpiše 1 do 5\nfor (int i = 1; i <= 5; i++) {\ncout << i << \" \";\n}\n// Izpis: 1 2 3 4 5\n// Vsota elementov tabele\nint vsota = 0;\nint tab[5] = {1, 2, 3, 4, 5};\nfor (int i = 0; i < 5; i++) {\nvsota += tab[i];\n}"}, {"id": 42, "s": "upn", "q": "Naštejte in opišite zanke. Kaj je neskončna zanka in kako jo zaključimo?", "a": "A   Vrste zank 4 t.\nFOR – za znano število ponovitev\nWHILE – ponavlja, dokler je pogoj TRUE (preveri pred)\nDO-WHILE – izvede vsaj enkrat, preveri pogoj po izvedbi\nB   Primer uporabe 6 t.\n// FOR\nfor (int i = 0; i < 3; i++) cout << i << \" \";  // 0 1 2\n// WHILE\nint x = 0;\nwhile (x < 3) { cout << x++ << \" \"; }           // 0 1 2\n// DO-WHILE\nint y = 0;\ndo { cout << y++ << \" \"; } while (y < 3);       // 0 1 2"}, {"id": 43, "s": "upn", "q": "Stavka break in continue – lastnosti, kdaj in kako ju uporabimo.", "a": "A   Definicija in mesto zapisa 4 t.\nbreak – takoj zaključi izvajanje zanke ali switch stavka\ncontinue – preskoči preostanek trenutne iteracije in skoči na naslednjo\nOba se zapišeta znotraj zanke (for, while, do-while) ali switch.\nB   Kdaj ju uporabimo 5 t.\nbreak – ko smo našli iskano vrednost, ob napaki, ko hočemo predčasno zapustiti zanko\ncontinue – ko hočemo preskočiti določene elemente (npr. izpiši samo soda števila)\nC   Primer uporabe 5 t.\n// BREAK – ustavi zanko pri i=3\nfor (int i = 0; i < 5; i++) {\nif (i == 3) break;\ncout << i << \" \";  // Izpis: 0 1 2\n}\n// CONTINUE – preskoči soda števila\nfor (int i = 0; i < 6; i++) {\nif (i % 2 == 0) continue;\ncout << i << \" \";  // Izpis: 1 3 5\n}"}, {"id": 44, "s": "upn", "q": "Kaj je funkcija? Deklaracija in klic funkcije. Knjižnice in vključitev.", "a": "A   Definicija in namen 4 t.\nFunkcija je zaključen blok kode, ki opravlja določeno nalogo. Ima ime, morebitne parametre in vrne vrednost. Zmanjšuje ponavljanje kode in izboljšuje preglednost.\nB   Deklaracija in klic funkcije 7 t.\n// DEKLARACIJA (prototip) – pred main()\nint sestej(int a, int b);\n// DEFINICIJA – implementacija funkcije\nint sestej(int a, int b) {\nreturn a + b;\n}\n// KLIC funkcije\nint main() {\nint rezultat = sestej(3, 5);  // klic\ncout << rezultat;            // izpis: 8\nreturn 0;\n}"}, {"id": 45, "s": "upn", "q": "Kaj so tabele (polja)? Kako jih deklariramo in kako uporabljamo?", "a": "A   Definicija tabele 4 t.\nTabela (polje/array) je zbirka elementov istega podatkovnega tipa, shranjenih v sosednjih pomnilniških mestih. Elemente dostopamo z indeksom (od 0 naprej).\nB   Deklaracija in inicializacija 5 t.\n// Deklaracija\nint ocene[5];           // tabela 5 elementov tipa int\n// Inicializacija ob deklaraciji\nint ocene[5] = {1, 2, 3, 4, 5};\n// Brez podane velikosti (prevajalnik jo določi sam)\nint ocene[] = {1, 2, 3, 4, 5};"}, {"id": 46, "s": "upn", "q": "Večdimenzionalne tabele (polja) – deklaracija in uporaba.", "a": "A   Definicija 4 t.\nVečdimenzionalna tabela je tabela tabel – tabela z več dimenzijami. Najpogosteje 2D (matrika): vrstice in stolpci.\nB   Deklaracija in inicializacija 5 t.\n// 2D tabela (matrika 3x3)\nint matrika[3][3];\n// Inicializacija\nint matrika[2][3] = {\n{1, 2, 3},   // vrstica 0\n{4, 5, 6}    // vrstica 1\n};"}, {"id": 47, "s": "upn", "q": "Nizi znakov v C/C++ – deklaracija, inicializacija, vpis in izpis.", "a": "A   Definicija niza, končni znak 4 t.\nNiz znakov (string) v C je tabela znakov tipa char, ki se zaključi z ničelnim znakom '\\0'. Ta znak pove, kje se niz konča. V C++ imamo tudi tip string iz knjižnice.\nB   Deklaracija in inicializacija 5 t.\n// C-slog niz (char tabela)\nchar ime[20] = \"Maja\";\n// v pomnilniku: 'M' 'a' 'j' 'a' '\\0'\n// C++ string\n#include <string>\nstring ime = \"Maja\";"}, {"id": 48, "s": "upn", "q": "Funkcija za primerjavo dveh nizov znakov. Argumenti, kaj vrača, primer.", "a": "A   Definicija in argumenti 4 t.\nV C se za primerjavo nizov uporablja funkcija strcmp() iz knjižnice <cstring>.\nint strcmp(const char* s1, const char* s2);\nArgumenta sta dva niza znakov (char*), ki ju primerjamo.\nB   Delovanje in trije možni rezultati 6 t.\nRezultatPomen\n0Niza sta enaka\nNegativna vrednosts1 je leksikografsko manjši od s2\nPozitivna vrednosts1 je leksikografsko večji od s2\nC   Primer uporabe 4 t.\n#include <cstring>\nchar s1[] = \"abc\";\nchar s2[] = \"abc\";\nchar s3[] = \"xyz\";\nif (strcmp(s1, s2) == 0) cout << \"Enaka!\";    // Izpiše \"Enaka!\"\nif (strcmp(s1, s3) < 0)  cout << \"abc < xyz\"; // Izpiše \"abc < xyz\"\n// V C++ s string tipom:\nstring a = \"abc\", b = \"abc\";\nif (a == b) cout << \"Enaka!\";"}, {"id": 49, "s": "upn", "q": "Lokalne in globalne spremenljivke. Spremenljivke v zankah.", "a": "A   Definicija 4 t.\nLokalna spremenljivka – deklarirana znotraj funkcije ali bloka; vidna samo v tem bloku\nGlobalna spremenljivka – deklarirana zunaj vseh funkcij; vidna v celotnem programu\nB   Mesto deklaracije in uporaba 5 t.\nint globalna = 100;  // GLOBALNA – zunaj funkcij\nint main() {\nint lokalna = 5;  // LOKALNA – znotraj main()\ncout << globalna;  // dostopna\ncout << lokalna;   // dostopna\nreturn 0;\n}\n// Lokalna spremenljivka NI vidna zunaj svojega bloka!"}, {"id": 50, "s": "upn", "q": "Generiranje naključnih števil. Seme, omejevanje obsega, primer.", "a": "A   Princip generiranja naključnih števil 4 t.\nRačunalnik generira psevdonaključna števila – zaporedje je videti naključno, a ga določa algoritem. Funkcija rand() iz <cstdlib> vrne psevdonaključno celo število.\nSeme (seed) je začetna vrednost algoritma. Enako seme vedno da enako zaporedje. Za različna zaporedja vsako zagotovitev nastavimo seme na različno vrednost (npr. sistemski čas).\nB   Omejevanje obsega 5 t.\n// Naključno število med 0 in RAND_MAX\nrand();\n// Naključno število od 0 do 9\nrand() % 10;\n// Naključno število od 1 do 10\nrand() % 10 + 1;\n// Splošno: od MIN do MAX\nMIN + rand() % (MAX - MIN + 1);"}, {"id": 51, "s": "rsa", "q": "Kaj je internet, kako je zgrajen in kako deluje? Storitve interneta.", "a": "A   Definicija in zgradba interneta 3 t.\nInternet je globalno omrežje medsebojno povezanih računalniških omrežij, ki omogoča izmenjavo podatkov po vsem svetu.\nB   Delovanje in protokoli 6 t.\nPodatki se prenašajo v obliki paketov. Postopek: zahteva → razdelitev na pakete → pot skozi omrežja → sestavljanje na cilju.\nProtokoli: TCP (zanesljiv prenos), IP (naslovi, usmerjanje), HTTP/HTTPS (spletne strani), FTP (datoteke), SMTP (pošta), POP3/IMAP (prejemanje), DNS (domene → IP).\nC   Vsaj 4 storitve interneta 4 t.\nWWW – pregledovanje spletnih strani\nE-mail – elektronska pošta\nFTP – prenos datotek\nVoIP – internetna telefonija\nVideokonference (Zoom, Teams)\nPretakanje vsebin (YouTube, Netflix)"}, {"id": 52, "s": "rsa", "q": "Osnovna zgradba HTML dokumenta. Kaj zapišemo v glavo dokumenta?", "a": "A   Osnovna zgradba 4 t.\n<!DOCTYPE html>\n<html>\n<head>\n<title>Moja stran</title>\n</head>\n<body>\n<h1>Pozdravljen svet</h1>\n</body>\n</html>"}, {"id": 53, "s": "rsa", "q": "Kaj potrebujemo za prikaz spletne strani? Komunikacija med brskalnikom in strežnikom.", "a": "A   Strojna oprema, programska oprema, storitev 4 t.\nRačunalnik ali telefon\nInternetna povezava\nSpletni brskalnik (Chrome, Firefox...)\nSpletni strežnik (Apache, Nginx...)\nB   Komunikacija brskalnik–strežnik 6 t.\nUporabnik vnese URL\nDNS poišče IP naslov strežnika\nBrskalnik pošlje HTTP/HTTPS zahtevo\nStrežnik obdela zahtevo\nStrežnik vrne HTML dokument\nBrskalnik prikaže stran\nC   Multimedijske vsebine 3 t.\nPo prejemu HTML brskalnik pošlje dodatne zahteve za slike, videoposnetke, zvok, CSS in JavaScript datoteke. Vsaka datoteka se prenese posebej."}, {"id": 54, "s": "rsa", "q": "SESSION in COOKIE – čemu ju uporabljamo, razlike, dostop do podatkov.", "a": "A   Namen 4 t.\nUporabljamo ju za: prijavo uporabnikov, shranjevanje nastavitev, nakupovalne košarice, sledenje seji.\nB   Razlike 4 t.\nSESSIONCOOKIE\nShranjena na strežnikuShranjen v brskalniku\nVarnejšaManj varna\nIzbriše se po zaključku sejeOstane lahko dlje časa\nC   Dostop do podatkov 5 t.\n// SESSION\nsession_start();\n$_SESSION[\"uporabnik\"] = \"Maja\";   // shrani\necho $_SESSION[\"uporabnik\"];       // preberi\n// COOKIE\nsetcookie(\"jezik\", \"sl\", time() + 3600);  // nastavi\necho $_COOKIE[\"jezik\"];                    // preberi"}, {"id": 55, "s": "rsa", "q": "Razlika med GET in POST metodo. $_POST, $_GET in $_REQUEST.", "a": "A   Razlika in določitev metode 4 t.\nGETPOST\nPodatki vidni v URLPodatki skryti\nPrimerno za iskanjePrimerno za gesla, obrazce\nOmejitev dolžine URLBrez omejitve dolžine\n<form method=\"get\">  ali  <form method=\"post\">"}, {"id": 56, "s": "rsa", "q": "Kaj je CSS in kako ga uporabljamo? Primeri.", "a": "A   Kratica CSS 3 t.\nCSS – Cascading Style Sheets (prekrivne slogovne predloge). Skrbi za vizualni videz HTML dokumenta.\nB   Povezava med HTML in CSS, vključitev 6 t.\nHTML določa vsebino, CSS pa videz. Vključitev:\n<!-- Zunanja datoteka -->\n<link rel=\"stylesheet\" href=\"style.css\">\n<!-- Notranji CSS -->\n<style>\np { color: blue; }\n</style>\n<!-- Inline CSS -->\n<p style=\"color: red;\">Besedilo</p>"}, {"id": 57, "s": "rsa", "q": "Zgradba obrazca v HTML in za kaj ga uporabljamo.", "a": "A   Namen in oznaka 3 t.\nObrazec gebruikt za vnos podatkov uporabnika (prijava, registracija, iskanje). Oznaka: <form>\nB   Atributi oznake form 4 t.\naction – datoteka, ki obdela podatke\nmethod – GET ali POST\nenctype – način kodiranja (za upload: multipart/form-data)\nname/id – identifikator obrazca\nC   Vsaj 4 elementi v obrazcu 6 t.\n<input type=\"text\">      <!-- besedilno polje -->\n<input type=\"password\">  <!-- geslo -->\n<input type=\"checkbox\">  <!-- potrditveno polje -->\n<input type=\"radio\">     <!-- izbirni gumb -->\n<select></select>        <!-- spustni seznam -->\n<input type=\"submit\">    <!-- gumb za pošiljanje -->\n<textarea></textarea>   <!-- večvrstično besedilo -->"}, {"id": 58, "s": "rsa", "q": "Razlike med statično in dinamično spletno stranjo.", "a": "A   Razlike v delovanju 5 t.\nStatična stranDinamična stran\nVnaprej pripravljena HTML datotekaVsebina se ustvari sproti\nEnaka vsebina za vsePrilagojena vsebina\nBrez strežniškega jezikaPHP, Python, Java...\nNi podatkovne bazePogosto z bazo\nB   Namen ene ali druge 3 t.\nStatična: predstavitvene strani, dokumentacija, redko spremenljiva vsebina.\nDinamična: spletne trgovine, družbena omrežja, forumi, portali z računi.\nC   Kaj potrebuje dinamična stran 5 t.\nSpletni strežnik (Apache, Nginx)\nStrežniški programski jezik (PHP, Python)\nPodatkovna baza (MySQL, PostgreSQL)\nInternetna povezava\nSpletni brskalnik"}, {"id": 59, "s": "rsa", "q": "Pomen kratice URL/URI. Sestavni deli spletnega naslova. Domena in poddomena.", "a": "A   URL in URI 3 t.\nURL (Uniform Resource Locator) – spletni naslov, ki določa lokacijo vira na internetu. URI (Uniform Resource Identifier) – širši pojem; URL je posebna vrsta URI.\nB   Sestavni deli naslova 6 t.\nhttps://www.fri.uni-lj.si/studij/index.html\nhttps      → protokol\nwww        → poddomena\nfri.uni-lj.si → domena\n/studij/   → pot (mapa)\nindex.html → datoteka"}, {"id": 60, "s": "rsa", "q": "Kaj pomeni HTML? Kaj omogoča? Splošen zapis elementa in vsaj 5 elementov.", "a": "A   Kratica HTML 3 t.\nHTML – HyperText Markup Language (opisni jezik za označevanje hiperteksta).\nB   Kaj omogoča, splošen zapis 5 t.\nHTML omogoča: izdelavo spletnih strani, strukturiranje vsebine, prikaz besedila, slik, povezav, tabel, obrazcev.\nSplošen zapis: <oznaka>Vsebina</oznaka>\nPrimer: <p>Odstavek</p>"}, {"id": 61, "s": "rsa", "q": "Zgradba HTML elementa. Bločni in vrstični elementi. Atributi.", "a": "A   Zgradba elementa 3 t.\n<p class=\"besedilo\">Pozdravljen svet</p>\nSestavni deli:\n- začetna oznaka: <p>\n- vsebina: Pozdravljen svet\n- končna oznaka: </p>\n- atribut: class=\"besedilo\""}, {"id": 62, "s": "rsa", "q": "CSS – selektor, lastnost, vrednost. Primer.", "a": "A   Selektor, vrste 4 t.\nSelektor določa, kateri HTML elementi bodo oblikovani.\np { }        /* element selektor */\n.novica { }  /* class selektor */\n#glava { }   /* ID selektor */\n* { }        /* univerzalni selektor */"}, {"id": 63, "s": "rsa", "q": "Načini vključitve CSS, prednosti/slabosti in hierarhija.", "a": "A   Trije načini vključitve 5 t.\nInline CSS – znotraj HTML elementa\nInterni CSS – v <style> v <head>\nZunanji CSS – v ločeni .css datoteki\nB   Prednosti, slabosti in hierarhija 3 t.\nNačinPrednostSlabost\nInlineTakojšnji učinekNepregledno, ni za vzdrževanje\nInterniVse na enem mestuNe deli med stranmi\nZunanjiPregledno, za vse straniDodaten HTTP zahtevek\nHierarhija (prioriteta): Inline > Interni > Zunanji\nC   Primeri 5 t.\n<!-- Inline -->\n<p style=\"color:red;\">Besedilo</p>\n<!-- Interni -->\n<style>\np { color: red; }\n</style>\n<!-- Zunanji -->\n<link rel=\"stylesheet\" href=\"style.css\">"}, {"id": 64, "s": "rsa", "q": "Kaj je PHP in čemu je namenjen? Vključitev PHP v HTML. Izvajanje.", "a": "A   Kaj je PHP 3 t.\nPHP je strežniški programski jezik za razvoj dinamičnih spletnih strani. Uporablja se za delo z bazami, prijavo uporabnikov, obdelavo obrazcev, generiranje HTML.\nB   Vključitev PHP v HTML 4 t.\n<p>\n<?php echo \"Pozdrav!\"; ?>\n</p>\nPHP koda se vpiše med <?php in ?>.\nC   Kje se izvaja, primer prijave 6 t.\nPHP se izvaja na strežniku. Brskalnik dobi samo HTML rezultat (ne vidi PHP kode).\n<?php\nif ($_POST[\"uporabnik\"] == \"admin\" &&\n$_POST[\"geslo\"] == \"1234\") {\necho \"Prijava uspešna!\";\n} else {\necho \"Napačni podatki.\";\n}\n?>"}, {"id": 65, "s": "rsa", "q": "Razlika med id in class selektorjema v CSS. Primeri.", "a": "A   Razlika 4 t.\nidclass\nUnikaten na celotni straniVeč elementov ima enako class\nSamo en elementSkupina elementov\nB   Zapis v HTML 4 t.\n<div id=\"glava\"></div>    <!-- id -->\n<p class=\"opomba\"></p>   <!-- class -->"}, {"id": 66, "s": "ppb", "q": "Kaj je SUPB? Naštejte SUPB in opišite naloge.", "a": "A   Definicija SUPB 4 t.\nSUPB (DBMS – Database Management System) je programska oprema za ustvarjanje, upravljanje, vzdrževanje in nadzor podatkovnih baz. Je posrednik med uporabnikom in podatkovno bazo.\nB   Primeri SUPB 4 t.\nMySQL\nPostgreSQL\nOracle Database\nMicrosoft SQL Server\nSQLite\nMongoDB\nC   Naloge SUPB 5 t.\nUstvarjanje podatkovnih baz in tabel\nShranjevanje, urejanje in brisanje podatkov\nIskanje in obdelava podatkov\nNadzor dostopa uporabnikov\nZaščita podatkov in varnostne kopije\nZagotavljanje integritete podatkov"}, {"id": 67, "s": "ppb", "q": "Kaj je podatek in kaj je informacija? Razlika in primer.", "a": "A   Definicija podatka 3 t.\nPodatek je surovo dejstvo, simbolna vrednost brez konteksta ali razlage. Sam po sebi nima posebnega smisla.\nB   Definicija informacije 3 t.\nInformacija je obdelan, urejen in razumljiv podatek, ki ima pomen za prejemnika. Nastane, ko podatke povežemo v smiseln kontekst.\nC   Primeri in razlika 7 t.\nPodatek: „25\", „Ljubljana\", „18 °C\" – posamezni podatki brez konteksta\nInformacija: „V Ljubljani je danes 18 °C.\" – podatki so smiselno povezani\nRazlika: Podatek je surovo dejstvo. Informacija je obdelan podatek z jasnim pomenom. Podatki postanejo informacije, ko jih uredimo, povežemo in razložimo."}, {"id": 68, "s": "ppb", "q": "Prednosti in slabosti podatkovne baze v primerjavi z besedilnimi datotekami.", "a": "A   Vsaj 3 prednosti SUPB 6 t.\nHitrejše iskanje in obdelava podatkov\nVečja varnost podatkov\nManj podvajanja podatkov\nDelo več uporabnikov hkrati\nVečja zanesljivost in integriteta podatkov\nB   Vsaj 2 slabosti SUPB 4 t.\nVečja zahtevnost uporabe\nVišji stroški (licenčnine, strežniki)\nVečja poraba sistemskih virov\nC   Kdaj podatkovna baza ni primerna 3 t.\nKo imamo zelo malo podatkov\nKo podatkov skoraj nikoli ne spreminjamo\nZa enostavne programe, kjer zadostuje besedilna datoteka"}, {"id": 69, "s": "ppb", "q": "Kaj je SQL in za kaj se uporablja?", "a": "A   Definicija SQL 4 t.\nSQL (Structured Query Language) je standardni programski jezik za delo s podatkovnimi bazami. Uporablja se pri relacijskih bazah (MySQL, PostgreSQL, Oracle).\nB   Vsaj 2 skupini ukazov 4 t.\nDDL (Data Definition Language) – definiranje strukture baze: CREATE, ALTER, DROP\nDML (Data Manipulation Language) – delo s podatki: SELECT, INSERT, UPDATE, DELETE\nC   Primer SQL stavka 5 t.\nSELECT ime, priimek\nFROM dijaki\nWHERE razred = '4A';"}, {"id": 70, "s": "ppb", "q": "Prednosti referenčne integritete.", "a": "A   Zaščita pred brisanjem 5 t.\nRI preprečuje brisanje zapisa v nadrejeni tabeli, če so nanj vezani zapisi v podrejeni. Primer: ne moremo izbrisati učenca, če ima ocene.\nB   Zaščita pred pisanjem 5 t.\nRI preprečuje vnos podatkov, ki se sklicujejo na neobstoječ zapis. Primer: ne moremo dodati ocene za neobstoječega učenca.\nC   Kako vzpostavimo RI 3 t.\nPRIMARY KEY v nadrejeni tabeli\nFOREIGN KEY v podrejeni tabeli\nPravila: ON DELETE CASCADE ali RESTRICT"}, {"id": 71, "s": "ppb", "q": "E-R model s praktičnim primerom.", "a": "A   Narisan E-R model 5 t.\nDIJAK               PREDMET\n-----------         -----------\nid_dijak (PK)       id_predmet (PK)\nime                 naziv\npriimek             opis\n\\               /\n\\             /\n[  VPIS  ]\n-----------\nid_dijak (FK)\nid_predmet (FK)\ndatum_vpisa"}, {"id": 72, "s": "ppb", "q": "Osnovni gradniki E-R modela: entiteta, atribut, kardinalnost.", "a": "A   Kaj je entiteta 4 t.\nEntiteta je objekt iz realnega sveta, o katerem shranjujemo podatke. Npr. oseba, predmet, dogodek (dijak, matematika, naročilo).\nB   Atribut in vrste 4 t.\nAtribut je lastnost entitete. Primer: Dijak → ime, priimek, datum rojstva.\nVrste: enostavni, sestavljeni, večvrednostni, izpeljani.\nC   Kardinalnost in vrste relacij 5 t.\nKardinalnost pove razmerje med entitetami:\n1:1 – ena proti ena (oseba – osebna izkaznica)\n1:N – ena proti mnogo (učitelj – predmeti)\nM:N – mnogo proti mnogo (dijak – predmet prek vpisa)"}, {"id": 73, "s": "ppb", "q": "Primer SELECT stavka z WHERE, INNER JOIN in ORDER BY.", "a": "A   SELECT z WHERE 4 t.\nSELECT ime, priimek\nFROM dijaki\nWHERE razred = '4A';"}, {"id": 74, "s": "ppb", "q": "Primer UPDATE stavka.", "a": "A   UPDATE z filtrom 5 t.\nUPDATE dijaki\nSET razred = '4B'\nWHERE id_dijak = 10;"}, {"id": 75, "s": "ppb", "q": "Primer INSERT stavka.", "a": "A   INSERT z minimalnimi polji 5 t.\nINSERT INTO dijaki (id_dijak, ime, priimek)\nVALUES (1, 'Matic', 'Novak');\nMinimalno: vsa obvezna polja (NOT NULL brez DEFAULT).\nB   Ali INSERT vstavi v več tabel? 4 t.\nNe. En INSERT vstavi podatke samo v eno tabelo.\nC   INSERT s tujim ključem 4 t.\nINSERT INTO ocene (id_ocena, id_dijak, ocena)\nVALUES (1, 10, 5);   -- id_dijak je tuji ključ"}, {"id": 76, "s": "ppb", "q": "Primer DELETE stavka.", "a": "A   DELETE z pogojem 5 t.\nDELETE FROM dijaki\nWHERE id_dijak = 10;"}, {"id": 77, "s": "ppb", "q": "Kako deluje JOIN? Primer dveh in treh tabel. INNER JOIN.", "a": "A   Primer JOIN dveh tabel 5 t.\nSELECT dijaki.ime, dijaki.priimek, ocene.ocena\nFROM dijaki d\nINNER JOIN ocene o\nON d.id = o.id_dijak;"}, {"id": 78, "s": "ppb", "q": "Združitvene (agregatne) funkcije v SQL.", "a": "A   Vse združitvene funkcije 5 t.\nFunkcijaOpis\nCOUNT()Šteje število vrstic\nSUM()Sešteje vrednosti\nAVG()Izračuna povprečje\nMIN()Najmanjša vrednost\nMAX()Največja vrednost\nB   Primer COUNT 4 t.\nSELECT COUNT(*) AS stevilo_dijakov\nFROM dijaki;"}, {"id": 79, "s": "ppb", "q": "SQL poizvedba za vse podatke iz tabele. Pogoj z LIKE.", "a": "A   Vsi podatki iz tabele 5 t.\nSELECT *\nFROM Dijaki;"}];
+const SECTION_NAMES = {vis:'VIS EKI VOS',iks:'IKS',upn:'UPN',rsa:'RSA',ppb:'PPB'};
+
+let sessionFilter = 'all';
+let questionPool = [];
+let currentIdx = 0;
+let currentQ = null;
+let doneIds = new Set();
+let skippedIds = new Set();
+let awaitingAnswer = false;
+let recognition = null;
+let isRecording = false;
+let voiceOn = true;
+let voicesList = [];
+let selectedVoiceURI = null;
+let speechRate = 0.95;
+
+// ===== VOICE LOADING & SELECTION =====
+function loadVoices() {
+  voicesList = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  if (voicesList.length && !selectedVoiceURI) {
+    // auto-pick best default (Slovenian > Croatian > Serbian > German > English > first)
+    const pick = voicesList.find(v => v.lang && v.lang.toLowerCase().startsWith('sl')) ||
+                 voicesList.find(v => v.lang && v.lang.toLowerCase().startsWith('hr')) ||
+                 voicesList.find(v => v.lang && v.lang.toLowerCase().startsWith('sr')) ||
+                 voicesList.find(v => v.lang && v.lang.toLowerCase().startsWith('de')) ||
+                 voicesList.find(v => v.lang && v.lang.toLowerCase().startsWith('en')) ||
+                 voicesList[0];
+    if (pick) selectedVoiceURI = pick.voiceURI;
+  }
+  populateVoiceSelects();
+}
+if (window.speechSynthesis) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function getChosenVoice() {
+  return voicesList.find(v => v.voiceURI === selectedVoiceURI) || voicesList[0] || null;
+}
+
+function voiceLabel(v) {
+  // friendly label, mark Slovenian voices
+  let label = v.name + ' (' + v.lang + ')';
+  if (v.lang && v.lang.toLowerCase().startsWith('sl')) label = '🇸🇮 ' + label;
+  return label;
+}
+
+function populateVoiceSelects() {
+  ['voice-select','voice-select-start'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (!voicesList.length) {
+      const opt = document.createElement('option');
+      opt.textContent = 'Ni razpoložljivih glasov';
+      sel.appendChild(opt);
+      return;
+    }
+    // sort: Slovenian-ish first
+    const order = v => {
+      const l = (v.lang||'').toLowerCase();
+      if (l.startsWith('sl')) return 0;
+      if (l.startsWith('hr')||l.startsWith('sr')) return 1;
+      if (l.startsWith('de')) return 2;
+      return 3;
+    };
+    const sorted = voicesList.slice().sort((a,b) => order(a)-order(b));
+    sorted.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.voiceURI;
+      opt.textContent = voiceLabel(v);
+      if (v.voiceURI === selectedVoiceURI) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function onVoiceChange(value) {
+  selectedVoiceURI = value;
+  populateVoiceSelects(); // sync both dropdowns
+  testVoice();
+}
+
+function onRateChange(value) {
+  speechRate = parseFloat(value);
+  const lbl = document.getElementById('rate-label');
+  if (lbl) lbl.textContent = speechRate.toFixed(2) + '×';
+}
+
+function testVoice() {
+  loadVoices();
+  voiceOn = true;
+  const btn = document.getElementById('voice-toggle');
+  if (btn) { btn.classList.add('on'); btn.textContent = '🔊 Glas'; }
+  speakRaw('Pozdravljen! Tako zvenim. Če me slišiš, je vse pripravljeno za učenje.');
+}
+
+function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; populateVoiceSelects(); }
+function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
+
+// ===== TTS =====
+function speakRaw(text, onEnd) {
+  if (!voiceOn || !('speechSynthesis' in window)) { if (onEnd) onEnd(); return; }
+  try { window.speechSynthesis.cancel(); } catch(e){}
+  const clean = text.replace(/[#*_\[\]`✓✗→←↑↓★•🎓👤❓✅⚡❌🔊🔁⏭💡📖🏆💪🌟📚]/g, '').replace(/\s+/g, ' ').trim();
+  if (!clean) { if (onEnd) onEnd(); return; }
+  setTimeout(() => {
+    const u = new SpeechSynthesisUtterance(clean);
+    const cv = getChosenVoice();
+    u.lang = (cv && cv.lang) ? cv.lang : 'sl-SI';
+    if (cv) u.voice = cv;
+    u.rate = speechRate; u.pitch = 1.0; u.volume = 1.0;
+    u.onend = () => { if (onEnd) onEnd(); };
+    u.onerror = () => { if (onEnd) onEnd(); };
+    try { window.speechSynthesis.speak(u); } catch(e) { if (onEnd) onEnd(); }
+  }, 70);
+}
+function stopSpeaking() { try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch(e){} }
+
+function toggleVoice() {
+  voiceOn = !voiceOn;
+  const btn = document.getElementById('voice-toggle');
+  btn.classList.toggle('on', voiceOn);
+  btn.textContent = voiceOn ? '🔊 Glas' : '🔇 Glas';
+  if (!voiceOn) stopSpeaking();
+}
+
+// ===== STT (continuous – stops only when user presses Stop) =====
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let accumulated = '';   // committed final text across whole recording
+let sessionFinal = '';  // final text within current recognition session
+let manualStop = false;
+
+function buildRecognition() {
+  if (!SR) return null;
+  const r = new SR();
+  r.lang = 'sl-SI';
+  r.continuous = true;        // keep listening through pauses
+  r.interimResults = true;
+  r.maxAlternatives = 1;
+
+  r.onresult = (e) => {
+    let interim = '';
+    sessionFinal = '';
+    for (let i = 0; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) sessionFinal += t + ' ';
+      else interim += t;
+    }
+    const shown = (accumulated + ' ' + sessionFinal + ' ' + interim).trim();
+    document.getElementById('live-text').textContent = shown || 'Poslušam... govori naprej';
+  };
+
+  r.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') {
+      manualStop = true; isRecording = false;
+      stopRecording(); hideLiveBox();
+      setStatus('red', 'Dostop do mikrofona zavrnjen. Dovoli mikrofon ali tipkaj.');
+    } else if (e.error === 'language-not-supported') {
+      manualStop = true; isRecording = false;
+      stopRecording(); hideLiveBox();
+      setStatus('red', 'Slovenščina za govor ni podprta v tem brskalniku. Tipkaj odgovor.');
+    }
+    // 'no-speech', 'aborted', 'network' -> let onend decide (will auto-restart if still recording)
+  };
+
+  r.onend = () => {
+    // commit this session's final text
+    if (sessionFinal.trim()) { accumulated = (accumulated + ' ' + sessionFinal).trim(); }
+    sessionFinal = '';
+    if (isRecording && !manualStop) {
+      // browser ended the session but user hasn't pressed Stop -> keep listening
+      try { r.start(); } catch(err) { finalizeRecording(); }
+    } else {
+      finalizeRecording();
+    }
+  };
+  return r;
+}
+
+function toggleMic() {
+  if (document.getElementById('mic-btn').classList.contains('disabled')) {
+    setStatus('', 'Govorni vnos ni podprt – tipkaj odgovor.');
+    return;
+  }
+  if (!awaitingAnswer) { setStatus('', 'Počakaj na vprašanje...'); return; }
+  if (isRecording) requestStop();
+  else startRecording();
+}
+
+function startRecording() {
+  stopSpeaking();
+  accumulated = '';
+  sessionFinal = '';
+  manualStop = false;
+  recognition = buildRecognition();
+  if (!recognition) { setStatus('', 'Govorni vnos ni podprt – tipkaj.'); return; }
+  isRecording = true;
+  try { recognition.start(); } catch(e){ isRecording=false; return; }
+  document.getElementById('mic-btn').classList.add('recording');
+  document.getElementById('mic-btn').textContent = '⏹';
+  document.getElementById('mic-label').textContent = 'Ustavi';
+  showLiveBox();
+  setStatus('red', 'Poslušam – povej cel odgovor, nato pritisni ⏹ Ustavi');
+}
+
+// User pressed stop -> finish and evaluate
+function requestStop() {
+  manualStop = true;
+  isRecording = false;
+  document.getElementById('mic-label').textContent = 'Ocenjujem...';
+  if (recognition) { try { recognition.stop(); } catch(e){ finalizeRecording(); } }
+  else finalizeRecording();
+}
+
+// Reset mic button without evaluating (used internally)
+function stopRecording() {
+  isRecording = false;
+  const mb = document.getElementById('mic-btn');
+  mb.classList.remove('recording');
+  mb.textContent = '🎙️';
+  document.getElementById('mic-label').textContent = 'Govori';
+}
+
+// Called once recognition has truly ended after manual stop
+function finalizeRecording() {
+  if (recognition) { recognition = null; }
+  stopRecording();
+  const text = (accumulated + ' ' + sessionFinal).trim();
+  accumulated = ''; sessionFinal = '';
+  hideLiveBox();
+  if (text) {
+    addUserMessage(text);
+    processAnswer(text);
+  } else {
+    setStatus('', 'Nisem nič slišal. Poskusi znova ali tipkaj.');
+  }
+}
+
+// Abort recording WITHOUT evaluating (when user skips/repeats/types instead)
+function abortRecording() {
+  manualStop = true;
+  isRecording = false;
+  if (recognition) {
+    recognition.onend = null; recognition.onresult = null; recognition.onerror = null;
+    try { recognition.stop(); } catch(e){}
+    recognition = null;
+  }
+  accumulated = ''; sessionFinal = '';
+  stopRecording();
+  hideLiveBox();
+}
+
+function showLiveBox() {
+  const lb = document.getElementById('live-box');
+  lb.classList.add('show', 'listening');
+  document.getElementById('live-text').textContent = 'Poslušam... govori naprej';
+}
+function hideLiveBox() {
+  document.getElementById('live-box').classList.remove('show', 'listening');
+}
+
+// ===== SECTION / START =====
+function selectSection(s, el) {
+  sessionFilter = s;
+  document.querySelectorAll('.start-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function startSession() {
+  loadVoices();
+  questionPool = sessionFilter === 'all' ? ALL_QA.slice() : ALL_QA.filter(q => q.s === sessionFilter);
+  for (let i = questionPool.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]];
+  }
+  currentIdx = 0; doneIds = new Set(); skippedIds = new Set();
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('prog-total').textContent = '/ ' + questionPool.length;
+  document.getElementById('btn-skip').style.display = '';
+  document.getElementById('btn-repeat').style.display = '';
+  document.getElementById('btn-show-answer').style.display = '';
+
+  if (!SR) {
+    document.getElementById('mic-btn').classList.add('disabled');
+    setStatus('', 'Govorni vnos ni podprt v tem brskalniku – tipkaj odgovore.');
+  }
+  updateProgress();
+  addAIMessage('Pozdravljen! 👋 Sem tvoj učni pomočnik. Prebral ti bom vprašanje, ti pa odgovori z glasom (gumb 🎙️) ali tipkaj. Začnimo!', false);
+  speakRaw('Pozdravljen! Začnimo z učenjem.', () => { setTimeout(askNext, 400); });
+  if (!voiceOn) setTimeout(askNext, 1000);
+}
+
+// ===== QUESTIONS =====
+function askNext() {
+  if (currentIdx >= questionPool.length) { finishSession(); return; }
+  currentQ = questionPool[currentIdx];
+  awaitingAnswer = true;
+  addQuestionBubble(currentQ, currentIdx + 1);
+  setStatus('', 'Prebiram vprašanje...');
+  speakRaw('Vprašanje ' + (currentIdx+1) + '. ' + currentQ.q, () => {
+    setStatus('green', 'Pritisni 🎙️, povej cel odgovor, nato ⏹ Ustavi (ali tipkaj)');
+  });
+  if (!voiceOn) setStatus('green', 'Pritisni 🎙️, povej cel odgovor, nato ⏹ Ustavi (ali tipkaj)');
+}
+
+function repeatQuestion() {
+  if (!currentQ) return;
+  stopSpeaking(); abortRecording();
+  speakRaw(currentQ.q);
+  setStatus('', 'Ponavljam vprašanje...');
+}
+
+function skipQuestion() {
+  if (!currentQ) return;
+  stopSpeaking(); abortRecording();
+  skippedIds.add(currentQ.id);
+  awaitingAnswer = false;
+  addAIMessage('Preskočeno. Gremo naprej. ⏭', true);
+  currentIdx++; updateProgress();
+  setTimeout(askNext, 700);
+}
+
+function showAnswer() {
+  if (!currentQ) return;
+  stopSpeaking(); abortRecording();
+  addAnswerBubble(currentQ.a);
+  speakRaw('Tukaj je celoten odgovor.');
+  setActionRow('after-answer');
+}
+
+// ===== AI SEMANTIČNO OCENJEVANJE (Gemini prek Vercel funkcije) =====
+// Endpoint: Vercel serverless funkcija /api/oceni (datoteka api/oceni.js).
+const EVAL_ENDPOINT = '/api/oceni';
+
+function processAnswer(userAnswer) {
+  if (!userAnswer.trim() || !awaitingAnswer) return;
+  awaitingAnswer = false;
+  setStatus('', 'AI ocenjuje tvoj odgovor...');
+  showTyping();
+  evaluateWithAI(currentQ, userAnswer)
+    .then(res => { hideTyping(); displayFeedback(res); })
+    .catch(err => { hideTyping(); handleEvalError(err, userAnswer); });
+}
+
+async function evaluateWithAI(q, userAnswer) {
+  const resp = await fetch(EVAL_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: q.q, reference: q.a, answer: userAnswer })
+  });
+  let data = null;
+  try { data = await resp.json(); } catch(e) { data = null; }
+  if (!resp.ok) {
+    const msg = (data && data.error) ? data.error : ('Napaka ' + resp.status);
+    const e = new Error(msg); e.status = resp.status; throw e;
+  }
+  if (!data) throw new Error('Prazen odgovor strežnika.');
+  return data;
+}
+
+function handleEvalError(err, userAnswer) {
+  const isNetwork = !err.status; // fetch failed (npr. ni funkcije / lokalno odpiranje)
+  let msg;
+  if (isNetwork) {
+    msg = 'AI ocenjevalec ni dosegljiv. To deluje šele, ko je stran objavljena na Vercelu z nastavljeno funkcijo (api/oceni.js) in ključem GEMINI_API_KEY. Lahko si pogledaš pravilen odgovor in nadaljuješ.';
+  } else if (err.status === 429) {
+    msg = 'Dosežena dnevna brezplačna meja Gemini. Poskusi znova kasneje, ali si poglej pravilen odgovor.';
+  } else {
+    msg = 'Napaka pri ocenjevanju: ' + err.message;
+  }
+  let html = '<div class="fb-title">⚠️ Ocenjevanje ni uspelo</div><div class="fb-body">' + escHtml(msg) + '</div>';
+  html += '<div class="full-answer-toggle" onclick="toggleFull(this)">📖 Pokaži pravilen odgovor</div>';
+  html += '<div class="full-answer">' + escHtml(currentQ.a) + '</div>';
+  addAIMessageHTML(html, 'fb-partial');
+  awaitingAnswer = true;
+  setActionRow('retry');
+  setStatus('', 'Poskusi znova – govori ali tipkaj');
+}
+
+function displayFeedback(res) {
+  const score = (typeof res.score === 'number') ? res.score : 0;
+  const verdict = res.verdict || (score >= 75 ? 'ok' : score >= 50 ? 'partial' : 'bad');
+  const isOk = verdict === 'ok';
+
+  const cls = isOk ? 'fb-ok' : verdict === 'partial' ? 'fb-partial' : 'fb-bad';
+  const icon = isOk ? '✅' : verdict === 'partial' ? '⚡' : '❌';
+  const scoreColor = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--accent4)' : 'var(--red)';
+  const title = res.title || (isOk ? 'Pravilno!' : verdict === 'partial' ? 'Delno pravilno' : 'Premalo');
+
+  let html = '<div class="fb-title">' + icon + ' ' + escHtml(title) +
+    ' <span style="margin-left:auto;font-size:1.05rem;color:' + scoreColor + '">' + score + '/100</span></div>';
+  html += '<div class="score-bar"><div class="score-bar-fill" style="width:' + score + '%;background:' + scoreColor + '"></div></div>';
+  html += '<div class="fb-body">' + escHtml(res.feedback || '').replace(/\n/g,'<br>');
+  if (res.missing && res.missing.length > 0) {
+    html += '<div style="margin-top:10px;font-size:0.78rem;color:var(--text-muted)">Kaj bi lahko še dodal:</div>';
+    html += '<div class="missing-list">';
+    res.missing.slice(0, 6).forEach(m => { html += '<span class="missing-chip">' + escHtml(m) + '</span>'; });
+    html += '</div>';
+  }
+  html += '<div class="full-answer-toggle" onclick="toggleFull(this)">📖 Pokaži celoten odgovor</div>';
+  html += '<div class="full-answer">' + escHtml(currentQ.a) + '</div>';
+  html += '</div>';
+
+  addAIMessageHTML(html, cls);
+
+  const afterSpeak = () => {
+    if (isOk) { doneIds.add(currentQ.id); updateProgress(); setActionRow('next'); }
+    else { awaitingAnswer = true; setActionRow('retry'); setStatus('green', 'Poskusi znova – govori ali tipkaj'); }
+  };
+  speakRaw(res.speak || title, afterSpeak);
+  if (!voiceOn) afterSpeak();
+}
+
+function toggleFull(el) {
+  const fa = el.nextElementSibling;
+  fa.classList.toggle('show');
+  el.textContent = fa.classList.contains('show') ? '📖 Skrij odgovor' : '📖 Pokaži celoten odgovor';
+}
+
+function retryAnswer() {
+  awaitingAnswer = true;
+  addAIMessage('Poskusi znova! 💪', true);
+  speakRaw('Poskusi znova!', () => setStatus('green', 'Govori ali tipkaj'));
+  if (!voiceOn) setStatus('green', 'Govori ali tipkaj');
+  setActionRow('');
+}
+
+function nextQuestion() {
+  if (currentQ) doneIds.add(currentQ.id);
+  currentIdx++; updateProgress(); awaitingAnswer = false;
+  setActionRow('');
+  setTimeout(askNext, 500);
+}
+
+function sendTextAnswer() {
+  if (!awaitingAnswer) return;
+  const inp = document.getElementById('text-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  inp.value = '';
+  stopSpeaking(); abortRecording();
+  addUserMessage(val);
+  processAnswer(val);
+}
+
+// ===== UI =====
+function escHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function addQuestionBubble(q, num) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = '<div class="msg-avatar">🎓</div><div class="msg-bubble q-bubble">' +
+    '<div class="q-label"><span>❓ Vprašanje ' + num + ' / ' + questionPool.length + '</span>' +
+    '<span class="stag tag-' + q.s + '">' + (SECTION_NAMES[q.s]||q.s) + '</span></div>' +
+    '<div class="q-text">' + escHtml(q.q) + '</div>' +
+    '<div class="q-speaker" onclick="repeatQuestion()">🔊 Ponovno preberi</div></div>';
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+function addAnswerBubble(answer) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = '<div class="msg-avatar">🎓</div><div class="msg-bubble fb-bad">' +
+    '<div class="fb-title">📖 Celoten odgovor</div><div class="fb-body" style="white-space:pre-wrap">' +
+    escHtml(answer) + '</div></div>';
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+function addAIMessage(text, small, cls) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  const bc = cls ? 'msg-bubble ' + cls : 'msg-bubble';
+  div.innerHTML = '<div class="msg-avatar">🎓</div><div class="' + bc + '" style="' +
+    (small?'font-size:0.82rem;color:var(--text-muted)':'') + '">' + text.replace(/\n/g,'<br>') + '</div>';
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+function addAIMessageHTML(html, cls) {
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = '<div class="msg-avatar">🎓</div><div class="msg-bubble ' + cls + '">' + html + '</div>';
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+function addUserMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = '<div class="msg-avatar">👤</div><div class="msg-bubble">' + escHtml(text) + '</div>';
+  document.getElementById('chat-area').appendChild(div);
+  scrollChat();
+}
+let typingEl = null;
+function showTyping() {
+  typingEl = document.createElement('div');
+  typingEl.className = 'msg ai';
+  typingEl.innerHTML = '<div class="msg-avatar">🎓</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  document.getElementById('chat-area').appendChild(typingEl);
+  scrollChat();
+}
+function hideTyping(){ if(typingEl){typingEl.remove();typingEl=null;} }
+function scrollChat(){ const c=document.getElementById('chat-area'); c.scrollTop=c.scrollHeight; }
+function setStatus(type, text){
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('status-dot').className = 'status-dot' + (type?' '+type:'');
+}
+function setActionRow(state){
+  const row = document.getElementById('action-row');
+  row.innerHTML = '';
+  if (state === 'retry') {
+    row.innerHTML = '<button class="action-btn success" onclick="nextQuestion()">✓ Vseeno naprej</button>' +
+      '<button class="action-btn" onclick="showAnswer()">💡 Pokaži odgovor</button>';
+  } else if (state === 'next') {
+    row.innerHTML = '<button class="action-btn primary" onclick="nextQuestion()">Naslednje vprašanje ▶</button>';
+  } else if (state === 'after-answer') {
+    row.innerHTML = '<button class="action-btn primary" onclick="nextQuestion()">▶ Naslednje vprašanje</button>';
+  }
+}
+function updateProgress(){
+  const total = questionPool.length, done = doneIds.size, skip = skippedIds.size;
+  document.getElementById('prog-fill').style.width = (total?done/total*100:0) + '%';
+  document.getElementById('prog-ok').textContent = done + ' ✓';
+  document.getElementById('prog-skip').textContent = skip + ' →';
+  document.getElementById('prog-total').textContent = '/ ' + total;
+}
+function finishSession(){
+  const done = doneIds.size, total = questionPool.length;
+  const pct = total?Math.round(done/total*100):0;
+  const msg = '🏆 Konec! Pravilno odgovorjenih ' + done + ' od ' + total + ' (' + pct + '%). ' +
+    (pct>=80?'Odlično pripravljen! 🌟':pct>=60?'Dobro! Ponovi težja vprašanja. 💪':'Nadaljuj z vajo – zmoreš! 📚');
+  addAIMessage(msg, false);
+  speakRaw(msg);
+  setStatus('green', 'Konec sklopa. Osveži stran za nov začetek.');
+  awaitingAnswer = false;
+}
+
+window.addEventListener('load', () => { loadVoices(); if(!SR){ document.getElementById('browser-note').style.display='block'; } });
+</script>
+</body>
+</html>
