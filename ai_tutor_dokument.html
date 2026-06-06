@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Tutor iz dokumenta — Matura</title>
+
+<!-- Knjižnice za branje datotek (client-side) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0f1117;
+  --panel:#171a22;
+  --panel2:#1e222c;
+  --border:#2a2f3a;
+  --text:#e6e9ef;
+  --muted:#8b93a3;
+  --accent:#4f8ef7;
+  --accent-soft:rgba(79,142,247,.15);
+  --good:#3ec97a;
+  --partial:#f2b84b;
+  --bad:#f25f5c;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 600px at 70% -10%, #1a2030 0%, var(--bg) 60%);
+  color:var(--text);
+  font-family:'Sora',system-ui,sans-serif;
+  min-height:100vh;
+  line-height:1.55;
+}
+.wrap{max-width:880px;margin:0 auto;padding:24px 18px 80px}
+code,.mono{font-family:'JetBrains Mono',monospace}
+
+/* Header */
+header{display:flex;align-items:center;gap:14px;margin:8px 0 24px}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7b5cff);
+  display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 6px 20px rgba(79,142,247,.35)}
+header h1{font-size:20px;margin:0;font-weight:700}
+header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+
+/* Cards */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  padding:22px;margin-bottom:18px;animation:rise .35s ease}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Upload */
+.drop{border:2px dashed var(--border);border-radius:var(--radius);padding:34px 20px;text-align:center;
+  cursor:pointer;transition:.2s;background:var(--panel2)}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop .big{font-size:38px;margin-bottom:8px}
+.drop b{color:var(--accent)}
+.muted{color:var(--muted);font-size:13px}
+textarea{width:100%;min-height:130px;background:var(--panel2);color:var(--text);
+  border:1px solid var(--border);border-radius:10px;padding:12px;font-family:inherit;font-size:14px;resize:vertical}
+textarea:focus{outline:none;border-color:var(--accent)}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:16px 0}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
+
+/* Buttons */
+.btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;
+  padding:12px 20px;border-radius:10px;transition:.15s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+
+/* Progress / chips */
+.chip{display:inline-block;background:var(--accent-soft);color:var(--accent);border:1px solid var(--border);
+  padding:4px 10px;border-radius:999px;font-size:12px;margin:3px 4px 0 0}
+.loader{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status{margin-top:14px;font-size:13px;color:var(--muted);min-height:18px}
+
+/* Exam */
+.qmeta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px;color:var(--muted)}
+.qtopic{color:var(--accent);font-weight:600}
+.question{font-size:18px;font-weight:600;margin:6px 0 16px;line-height:1.4}
+.mic-wrap{display:flex;gap:10px;align-items:flex-start}
+.mic-btn{flex-shrink:0;width:46px;height:46px;border-radius:12px;border:1px solid var(--border);
+  background:var(--panel2);color:var(--text);cursor:pointer;font-size:18px;transition:.15s}
+.mic-btn.rec{background:var(--bad);color:#fff;border-color:var(--bad);animation:pulse 1.1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(242,95,92,.5)}50%{box-shadow:0 0 0 8px rgba(242,95,92,0)}}
+.interim{color:var(--muted);font-size:13px;min-height:18px;margin-top:6px;font-style:italic}
+
+/* Feedback */
+.fb{border-radius:12px;padding:18px;margin-top:18px;border:1px solid var(--border);background:var(--panel2)}
+.fb-head{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.gauge{font-size:30px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.bar{flex:1;height:10px;border-radius:6px;background:#0c0e14;overflow:hidden}
+.bar > i{display:block;height:100%;border-radius:6px;transition:width .6s ease}
+.verdict{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px}
+.fb h4{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.fb p{margin:0;font-size:14px}
+.fb ul{margin:6px 0 0;padding-left:20px}
+.fb li{font-size:14px;margin:3px 0}
+
+/* Stats */
+.stats{display:flex;gap:14px;flex-wrap:wrap}
+.stat{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px}
+.stat .num{font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.stat .lbl{font-size:12px;color:var(--muted);margin-top:2px}
+.weak{font-size:13px;color:var(--muted);margin-top:10px}
+
+/* Settings */
+.settings{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+.settings label{display:flex;align-items:center;gap:6px}
+select,input[type=range]{accent-color:var(--accent)}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:inherit}
+.hidden{display:none}
+.err{color:var(--bad);font-size:13px;margin-top:8px}
+.toggle-set{font-size:12px;color:var(--accent);cursor:pointer;user-select:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">🎓</div>
+    <div>
+      <h1>AI Tutor iz dokumenta</h1>
+      <p>Naloži snov → AI te ustno izpraša in oceni razumevanje</p>
+    </div>
+  </header>
+
+  <!-- ============ KORAK 1: NALAGANJE ============ -->
+  <section id="step-upload" class="card">
+    <div id="drop" class="drop">
+      <div class="big">📄</div>
+      <div>Povleci datoteko sem ali <b>klikni za izbiro</b></div>
+      <div class="muted" style="margin-top:6px">Podprto: PDF, Word (.docx), besedilo (.txt)</div>
+      <input id="fileInput" type="file" accept=".pdf,.docx,.txt" class="hidden">
+    </div>
+
+    <div class="divider">ali prilepi besedilo</div>
+    <textarea id="pasteArea" placeholder="Prilepi učno snov ali vprašanja in odgovore tukaj…"></textarea>
+
+    <div class="btn-row">
+      <button id="analyzeBtn" class="btn btn-primary">⚡ Analiziraj in pripravi vprašanja</button>
+    </div>
+    <div id="uploadStatus" class="status"></div>
+    <div id="uploadErr" class="err"></div>
+  </section>
+
+  <!-- ============ KORAK 2: PREGLED ============ -->
+  <section id="step-review" class="card hidden">
+    <h2 style="margin:0 0 6px;font-size:17px">Gradivo je pripravljeno ✅</h2>
+    <p class="muted" id="reviewSummary"></p>
+    <div id="topicChips" style="margin:10px 0 4px"></div>
+    <div class="btn-row">
+      <button id="startBtn" class="btn btn-primary">🎤 Začni ustno izpraševanje</button>
+      <button id="resetBtn" class="btn btn-ghost">↺ Naloži drug dokument</button>
+    </div>
+  </section>
+
+  <!-- ============ KORAK 3: IZPRAŠEVANJE ============ -->
+  <section id="step-exam" class="card hidden">
+    <div class="qmeta">
+      <span>Vprašanje <b id="qCount">1</b></span>
+      <span class="qtopic" id="qTopic">—</span>
+    </div>
+    <div class="question" id="qText">…</div>
+
+    <div class="mic-wrap">
+      <button id="micBtn" class="mic-btn" title="Govori odgovor">🎤</button>
+      <div style="flex:1">
+        <textarea id="answerArea" placeholder="Vpiši ali izgovori svoj odgovor…" style="min-height:90px"></textarea>
+        <div class="interim" id="interim"></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="submitBtn" class="btn btn-primary">Oddaj odgovor</button>
+      <button id="skipBtn" class="btn btn-ghost">Ne znam · preskoči</button>
+    </div>
+    <div id="examErr" class="err"></div>
+
+    <!-- Povratna informacija -->
+    <div id="feedback" class="fb hidden">
+      <div class="fb-head">
+        <span class="gauge" id="fbScore">0</span>
+        <div class="bar"><i id="fbBar"></i></div>
+        <span class="verdict" id="fbVerdict">—</span>
+      </div>
+      <div id="fbTitle" style="font-weight:600;font-size:15px"></div>
+      <h4>Kaj je dobro</h4>
+      <p id="fbGood"></p>
+      <div id="fbMissingWrap">
+        <h4>Kaj manjka</h4>
+        <ul id="fbMissing"></ul>
+      </div>
+      <h4>Razlaga</h4>
+      <p id="fbExplain"></p>
+      <div class="btn-row">
+        <button id="nextBtn" class="btn btn-primary">Naslednje vprašanje →</button>
+        <button id="showRefBtn" class="btn btn-ghost">Pokaži referenčni odgovor</button>
+      </div>
+      <p id="refAns" class="muted hidden" style="margin-top:10px"></p>
+    </div>
+  </section>
+
+  <!-- ============ STATISTIKA ============ -->
+  <section id="step-stats" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0;font-size:16px">📊 Statistika seje</h2>
+      <span class="toggle-set" id="toggleSet">⚙️ Glas</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="sAnswered">0</div><div class="lbl">odgovorjeno</div></div>
+      <div class="stat"><div class="num" id="sAvg">–</div><div class="lbl">povprečje</div></div>
+      <div class="stat"><div class="num" id="sCovered">0</div><div class="lbl">obravnavanih vprašanj</div></div>
+    </div>
+    <div class="weak" id="weakList"></div>
+
+    <div id="setPanel" class="hidden" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+      <div class="settings">
+        <label><input type="checkbox" id="voiceOn" checked> Beri vprašanja na glas</label>
+        <label>Glas: <select id="voiceSelect"></select></label>
+        <label>Hitrost: <input type="range" id="rate" min="0.6" max="1.3" step="0.05" value="0.95"></label>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ===================== KONFIGURACIJA =====================
+const API_ANALYZE = "/api/analiziraj"; // nova funkcija
+const API_GRADE   = "/api/oceni";      // tvoja obstoječa funkcija
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+// ===================== STANJE SEJE =====================
+let pairs = [];        // [{id, topic, question, reference}]
+let stats = {};        // id -> {asked, scores:[], avg, last}
+let currentId = null;
+let lastAskedId = null;
+let answeredCount = 0;
+
+// ===================== POMOŽNE =====================
+const $ = id => document.getElementById(id);
+const show = (id,on=true)=> $(id).classList.toggle("hidden", !on);
+
+// ===================== BRANJE DATOTEK =====================
+async function extractFromFile(file){
+  const name = file.name.toLowerCase();
+  if(name.endsWith(".pdf")){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+    let out = "";
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      out += tc.items.map(it=>it.str).join(" ") + "\n";
+      setUploadStatus(`Berem PDF… stran ${i}/${pdf.numPages}`);
+    }
+    return out;
+  }
+  if(name.endsWith(".docx")){
+    const buf = await file.arrayBuffer();
+    const res = await mammoth.extractRawText({arrayBuffer:buf});
+    return res.value || "";
+  }
+  if(name.endsWith(".txt")){
+    return await file.text();
+  }
+  throw new Error("Nepodprt tip datoteke. Uporabi PDF, .docx ali .txt.");
+}
+
+function setUploadStatus(msg, spinner=false){
+  $("uploadStatus").innerHTML = (spinner?'<span class="loader"></span> ':'') + (msg||"");
+}
+
+// ===================== ANALIZA DOKUMENTA =====================
+async function analyze(){
+  $("uploadErr").textContent = "";
+  const file = $("fileInput").files[0];
+  const pasted = $("pasteArea").value.trim();
+
+  let text = "";
+  try{
+    if(file){
+      setUploadStatus("Berem datoteko…", true);
+      text = await extractFromFile(file);
+    } else if(pasted.length >= 50){
+      text = pasted;
+    } else {
+      $("uploadErr").textContent = "Naloži datoteko ali prilepi vsaj nekaj besedila.";
+      return;
+    }
+  }catch(e){
+    $("uploadErr").textContent = "Napaka pri branju: " + e.message;
+    setUploadStatus("");
+    return;
+  }
+
+  if(text.trim().length < 50){
+    $("uploadErr").textContent = "Iz dokumenta nisem prebral dovolj besedila (morda je skeniran PDF brez besedila).";
+    setUploadStatus("");
+    return;
+  }
+
+  $("analyzeBtn").disabled = true;
+  setUploadStatus("AI analizira snov in pripravlja vprašanja…", true);
+
+  try{
+    const r = await fetch(API_ANALYZE,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text})
+    });
+    if(!r.ok){
+      const j = await r.json().catch(()=>({}));
+      throw new Error(j.error || ("Strežnik je vrnil "+r.status));
+    }
+    const data = await r.json();
+    pairs = (data.pairs||[]).map((p,i)=>({ id:i, topic:p.topic||"Splošno", question:p.question, reference:p.reference }));
+    if(pairs.length===0) throw new Error("AI ni našel uporabnih vprašanj.");
+
+    stats = {};
+    pairs.forEach(p=> stats[p.id] = {asked:0, scores:[], avg:0, last:null});
+
+    // pregled
+    const topics = data.topics && data.topics.length ? data.topics : [...new Set(pairs.map(p=>p.topic))];
+    $("reviewSummary").textContent =
+      `Pripravljenih ${pairs.length} vprašanj iz ${topics.length} ` +
+      (topics.length===1?"teme":"tem") + (data.truncated?" (dokument je bil zelo dolg in delno skrajšan).":".");
+    $("topicChips").innerHTML = topics.map(t=>`<span class="chip">${escapeHtml(t)}</span>`).join("");
+
+    setUploadStatus("");
+    show("step-upload", false);
+    show("step-review", true);
+  }catch(e){
+    $("uploadErr").textContent = "Napaka pri analizi: " + e.message +
+      " · (Deluje samo na Vercelu, ne pri lokalnem odpiranju datoteke.)";
+    setUploadStatus("");
+  }finally{
+    $("analyzeBtn").disabled = false;
+  }
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+// ===================== IZBIRA NASLEDNJEGA VPRAŠANJA =====================
+// Utežena izbira: še nevprašana imajo prednost; med vprašanimi imajo
+// nižje povprečje večjo težo (pogosteje ponavljamo, kjer je bila ocena nizka).
+function pickNext(){
+  if(pairs.length===0) return null;
+  const pool = pairs.length>1 ? pairs.filter(p=>p.id!==lastAskedId) : pairs;
+  let total=0;
+  const weighted = pool.map(p=>{
+    const s = stats[p.id];
+    let w;
+    if(!s || s.asked===0) w = 6;                  // nevprašana -> visoka prednost
+    else w = 1 + (100 - s.avg)/100 * 5;           // avg 100 -> 1 ; avg 0 -> 6
+    total += w;
+    return {p,w};
+  });
+  let r = Math.random()*total;
+  for(const it of weighted){ r -= it.w; if(r<=0) return it.p; }
+  return weighted[weighted.length-1].p;
+}
+
+// ===================== PRIKAZ VPRAŠANJA =====================
+function nextQuestion(){
+  const q = pickNext();
+  if(!q) return;
+  currentId = q.id;
+  lastAskedId = q.id;
+  $("qTopic").textContent = q.topic;
+  $("qText").textContent = q.question;
+  $("qCount").textContent = answeredCount + 1;
+  $("answerArea").value = "";
+  $("interim").textContent = "";
+  $("examErr").textContent = "";
+  show("feedback", false);
+  show("refAns", false);
+  $("answerArea").focus();
+  speak(q.question);
+}
+
+// ===================== OCENJEVANJE (semantično, prek /api/oceni) =====================
+async function submitAnswer(){
+  const answer = $("answerArea").value.trim();
+  $("examErr").textContent = "";
+  if(answer.length < 2){
+    $("examErr").textContent = "Najprej vnesi odgovor (ali pritisni 'Ne znam').";
+    return;
+  }
+  const q = pairs.find(p=>p.id===currentId);
+  $("submitBtn").disabled = true;
+  $("submitBtn").innerHTML = '<span class="loader"></span> Ocenjujem…';
+
+  try{
+    const r = await fetch(API_GRADE,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({question:q.question, reference:q.reference, answer})
+    });
+    if(!r.ok){
+      const j = await r.json().catch(()=>({}));
+      throw new Error(j.error || ("Strežnik je vrnil "+r.status));
+    }
+    const data = await r.json();
+    recordScore(q.id, typeof data.score==="number"?data.score:0);
+    displayFeedback(data, q);
+  }catch(e){
+    $("examErr").textContent = "Napaka pri ocenjevanju: " + e.message;
+  }finally{
+    $("submitBtn").disabled = false;
+    $("submitBtn").textContent = "Oddaj odgovor";
+  }
+}
+
+function skipQuestion(){
+  const q = pairs.find(p=>p.id===currentId);
+  recordScore(q.id, 0);
+  displayFeedback({
+    score:0, verdict:"bad", title:"Preskočeno",
+    feedback:"Vprašanje si preskočil.",
+    missing:[], speak:""
+  }, q);
+}
+
+function recordScore(id, score){
+  const s = stats[id];
+  s.scores.push(score);
+  s.asked++;
+  s.last = score;
+  s.avg = Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length);
+  answeredCount++;
+  renderStats();
+}
+
+// ===================== PRIKAZ POVRATNE INFORMACIJE =====================
+function displayFeedback(d, q){
+  const score = typeof d.score==="number" ? Math.round(d.score) : 0;
+  // verdict in barva
+  let color = "var(--bad)", vtxt = "Nezadostno";
+  if(score>=75){ color="var(--good)"; vtxt="Odlično"; }
+  else if(score>=50){ color="var(--partial)"; vtxt="Delno"; }
+  if(d.verdict==="ok") vtxt = score>=90 ? "Skoraj popolno" : "Dobro";
+
+  $("fbScore").textContent = score;
+  $("fbScore").style.color = color;
+  $("fbBar").style.width = score + "%";
+  $("fbBar").style.background = color;
+  const v = $("fbVerdict");
+  v.textContent = vtxt;
+  v.style.background = color; v.style.color = "#0c0e14";
+
+  $("fbTitle").textContent = d.title || "";
+  // "kaj je dobro" + razlaga -> uporabimo feedback / speak
+  $("fbGood").textContent = d.feedback || d.speak || "—";
+
+  const miss = Array.isArray(d.missing) ? d.missing.filter(Boolean) : [];
+  if(miss.length){
+    $("fbMissing").innerHTML = miss.map(m=>`<li>${escapeHtml(m)}</li>`).join("");
+    show("fbMissingWrap", true);
+  } else {
+    show("fbMissingWrap", false);
+  }
+
+  $("fbExplain").textContent = d.explanation || d.speak || "Primerjava temelji na pomenu, ne na dobesednih besedah.";
+  $("refAns").textContent = "Referenčni odgovor: " + q.reference;
+
+  show("feedback", true);
+  if(d.speak) speak(d.speak);
+}
+
+// ===================== STATISTIKA =====================
+function renderStats(){
+  show("step-stats", true);
+  $("sAnswered").textContent = answeredCount;
+  const answered = pairs.filter(p=>stats[p.id].asked>0);
+  $("sCovered").textContent = answered.length + "/" + pairs.length;
+  if(answered.length){
+    const avg = Math.round(answered.reduce((a,p)=>a+stats[p.id].avg,0)/answered.length);
+    $("sAvg").textContent = avg + "%";
+  }
+  // najšibkejše teme
+  const weak = answered.filter(p=>stats[p.id].avg<60)
+    .sort((a,b)=>stats[a.id].avg-stats[b.id].avg).slice(0,3);
+  $("weakList").innerHTML = weak.length
+    ? "💡 Ponoviti velja: " + weak.map(p=>`<span class="chip">${escapeHtml(p.topic)} (${stats[p.id].avg}%)</span>`).join("")
+    : "";
+}
+
+// ===================== GOVOR (TTS) =====================
+let voices = [];
+function loadVoices(){ voices = speechSynthesis.getVoices() || []; populateVoices(); }
+function populateVoices(){
+  const sel = $("voiceSelect");
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = "";
+  // slovenščina najprej, nato hrvaščina, nato ostalo
+  const sorted = [...voices].sort((a,b)=>rank(a)-rank(b));
+  sorted.forEach(v=>{
+    const o=document.createElement("option");
+    o.value=v.name; o.textContent=`${v.name} (${v.lang})`;
+    sel.appendChild(o);
+  });
+  if(prev) sel.value = prev;
+}
+function rank(v){
+  const l=(v.lang||"").toLowerCase();
+  if(l.startsWith("sl")) return 0;
+  if(l.startsWith("hr")||l.startsWith("sr")||l.startsWith("bs")) return 1;
+  if(l.startsWith("en")) return 2;
+  return 3;
+}
+function speak(text){
+  if(!$("voiceOn").checked || !("speechSynthesis" in window) || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const chosen = voices.find(v=>v.name===$("voiceSelect").value);
+  if(chosen) u.voice = chosen;
+  u.lang = chosen ? chosen.lang : "sl-SI";
+  u.rate = parseFloat($("rate").value)||0.95;
+  speechSynthesis.speak(u);
+}
+if("speechSynthesis" in window){
+  speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+}
+
+// ===================== GOVORNI VNOS (STT) =====================
+let recog=null, recording=false, finalText="";
+function buildRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return null;
+  const r = new SR();
+  r.lang = "sl-SI";
+  r.continuous = true;
+  r.interimResults = true;
+  r.onresult = (e)=>{
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t = e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText += t + " ";
+      else interim += t;
+    }
+    $("answerArea").value = finalText + interim;
+    $("interim").textContent = interim ? "Slišim: " + interim : "";
+  };
+  r.onend = ()=>{ if(recording){ try{r.start();}catch(_){} } }; // poslušaj naprej
+  r.onerror = ()=>{};
+  return r;
+}
+function toggleMic(){
+  if(!recog) recog = buildRecognition();
+  if(!recog){ $("examErr").textContent="Govorni vnos ni podprt v tem brskalniku (uporabi Chrome)."; return; }
+  recording = !recording;
+  $("micBtn").classList.toggle("rec", recording);
+  if(recording){
+    finalText = $("answerArea").value ? $("answerArea").value + " " : "";
+    speechSynthesis.cancel();
+    try{ recog.start(); }catch(_){}
+  } else {
+    try{ recog.stop(); }catch(_){}
+    $("interim").textContent="";
+  }
+}
+
+// ===================== DOGODKI =====================
+const drop=$("drop"), fileInput=$("fileInput");
+drop.addEventListener("click",()=>fileInput.click());
+drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("over");});
+drop.addEventListener("dragleave",()=>drop.classList.remove("over"));
+drop.addEventListener("drop",e=>{
+  e.preventDefault();drop.classList.remove("over");
+  if(e.dataTransfer.files[0]){ fileInput.files=e.dataTransfer.files; fileChosen(); }
+});
+fileInput.addEventListener("change", fileChosen);
+function fileChosen(){
+  const f=fileInput.files[0];
+  if(f) drop.querySelector("div:nth-child(2)").innerHTML = "Izbrano: <b>"+escapeHtml(f.name)+"</b>";
+}
+
+$("analyzeBtn").addEventListener("click", analyze);
+$("startBtn").addEventListener("click", ()=>{
+  show("step-review", false);
+  show("step-exam", true);
+  renderStats();
+  nextQuestion();
+});
+$("resetBtn").addEventListener("click", ()=>location.reload());
+$("submitBtn").addEventListener("click", submitAnswer);
+$("skipBtn").addEventListener("click", skipQuestion);
+$("nextBtn").addEventListener("click", nextQuestion);
+$("micBtn").addEventListener("click", toggleMic);
+$("showRefBtn").addEventListener("click", ()=> show("refAns", true));
+$("toggleSet").addEventListener("click", ()=> $("setPanel").classList.toggle("hidden"));
+$("answerArea").addEventListener("keydown", e=>{
+  if(e.key==="Enter" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); submitAnswer(); }
+});
+</script>
+</body>
+</html>
