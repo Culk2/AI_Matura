@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — AI Tutor</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<style>
+  .doc{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--border);
+    border-radius:12px;background:var(--panel2);margin-bottom:10px;flex-wrap:wrap}
+  .doc .ico{width:40px;height:40px;border-radius:10px;background:var(--accent-soft);display:flex;
+    align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .doc .meta{flex:1;min-width:160px}
+  .doc .meta b{font-size:15px}
+  .doc .meta .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .progress{height:7px;border-radius:5px;background:#0c0e14;overflow:hidden;margin-top:8px;max-width:260px}
+  .progress > i{display:block;height:100%;background:var(--accent);border-radius:5px;transition:width .5s}
+  .doc-actions{display:flex;gap:8px}
+  h2.sec{font-size:16px;margin:0 0 14px}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">🎓</div>
+      <div><h1>Moj dashboard</h1><p id="hello">…</p></div>
+    </div>
+    <div class="userbox">
+      <a class="btn btn-primary btn-sm" href="/ai_tutor_dokument.html">+ Nov dokument</a>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Odjava</button>
+    </div>
+  </div>
+
+  <!-- STATISTIKA -->
+  <section class="card">
+    <h2 class="sec">📊 Statistika</h2>
+    <div class="stats">
+      <div class="stat"><div class="num" id="sAnswered">0</div><div class="lbl">opravljenih vprašanj</div></div>
+      <div class="stat"><div class="num" id="sAvg">–</div><div class="lbl">povprečna ocena</div></div>
+      <div class="stat"><div class="num" id="sProgress">0%</div><div class="lbl">skupni napredek</div></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="muted">🏆 Najboljše teme</div>
+      <div id="bestTopics" style="margin-top:4px"></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="muted">📉 Najslabše teme (ponoviti)</div>
+      <div id="worstTopics" style="margin-top:4px"></div>
+    </div>
+  </section>
+
+  <!-- DOKUMENTI / KVIZI -->
+  <section class="card">
+    <h2 class="sec">📁 Moji dokumenti in kvizi</h2>
+    <div id="docList"><div class="muted"><span class="loader"></span> Nalagam…</div></div>
+  </section>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
+<script src="/supabase-client.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const icoFor = t => t==="pdf"?"📕": t==="docx"?"📘":"📄";
+const fmtDate = s => new Date(s).toLocaleDateString("sl-SI",{day:"numeric",month:"short",year:"numeric"});
+
+$("logoutBtn").onclick = () => TutorDB.logout();
+
+(async () => {
+  const user = await TutorDB.requireAuth();
+  if(!user) return;
+
+  const prof = await TutorDB.profile();
+  $("hello").textContent = "Pozdravljen, " + (prof?.username || user.email) + " 👋";
+
+  // Naloži vse naenkrat
+  let docs=[], questions=[], attempts=[];
+  try{
+    [docs, questions, attempts] = await Promise.all([
+      TutorDB.listDocuments(),
+      TutorDB.allQuestions(),
+      TutorDB.allAttempts()
+    ]);
+  }catch(e){
+    $("docList").innerHTML = '<div class="err">Napaka pri nalaganju: '+esc(e.message)+'</div>';
+    return;
+  }
+
+  // -------- Statistika (globalno) --------
+  const topicById = {};
+  questions.forEach(q => topicById[q.id] = q.topic || "Splošno");
+
+  $("sAnswered").textContent = attempts.length;
+  if(attempts.length){
+    const avg = Math.round(attempts.reduce((a,x)=>a+(x.score||0),0)/attempts.length);
+    $("sAvg").textContent = avg + "%";
+  }
+  // skupni napredek = unikatna odgovorjena vprašanja / vsa vprašanja
+  const totalQ = questions.length;
+  const answeredQ = new Set(attempts.map(a=>a.question_id)).size;
+  $("sProgress").textContent = totalQ ? Math.round(answeredQ/totalQ*100)+"%" : "0%";
+
+  // teme: povprečje po temi
+  const byTopic = {};
+  attempts.forEach(a=>{
+    const t = topicById[a.question_id]; if(!t) return;
+    (byTopic[t] ??= []).push(a.score||0);
+  });
+  const topicAvg = Object.entries(byTopic).map(([t,arr])=>({
+    t, avg: Math.round(arr.reduce((x,y)=>x+y,0)/arr.length), n: arr.length
+  }));
+  const best = [...topicAvg].sort((a,b)=>b.avg-a.avg).slice(0,3);
+  const worst = [...topicAvg].sort((a,b)=>a.avg-b.avg).slice(0,3);
+  $("bestTopics").innerHTML = best.length
+    ? best.map(x=>`<span class="chip">${esc(x.t)} · ${x.avg}%</span>`).join("")
+    : '<span class="muted">Še ni podatkov.</span>';
+  $("worstTopics").innerHTML = worst.length
+    ? worst.map(x=>`<span class="chip">${esc(x.t)} · ${x.avg}%</span>`).join("")
+    : '<span class="muted">Še ni podatkov.</span>';
+
+  // -------- Dokumenti --------
+  if(!docs.length){
+    $("docList").innerHTML = '<div class="empty">Še nimaš dokumentov.<br><br>'
+      + '<a class="btn btn-primary" href="/ai_tutor_dokument.html">+ Naloži prvi dokument</a></div>';
+    return;
+  }
+
+  // poskusi po dokumentu
+  const attByDoc = {};
+  attempts.forEach(a => (attByDoc[a.document_id] ??= []).push(a));
+
+  $("docList").innerHTML = docs.map(d=>{
+    const da = attByDoc[d.id] || [];
+    const answeredUnique = new Set(da.map(a=>a.question_id)).size;
+    const total = d.num_questions || 0;
+    const pct = total ? Math.round(answeredUnique/total*100) : 0;
+    const avg = da.length ? Math.round(da.reduce((a,x)=>a+(x.score||0),0)/da.length) : null;
+    return `
+      <div class="doc">
+        <div class="ico">${icoFor(d.type)}</div>
+        <div class="meta">
+          <b>${esc(d.name)}</b>
+          <div class="sub">${total} vprašanj · naloženo ${fmtDate(d.created_at)}${avg!==null?` · povprečje ${avg}%`:""}</div>
+          <div class="progress"><i style="width:${pct}%"></i></div>
+          <div class="sub" style="margin-top:4px">Napredek: ${answeredUnique}/${total} (${pct}%)</div>
+        </div>
+        <div class="doc-actions">
+          <a class="btn btn-primary btn-sm" href="/ai_tutor_dokument.html?doc=${d.id}">Nadaljuj</a>
+          <button class="btn btn-danger btn-sm" data-del="${d.id}" data-path="${esc(d.storage_path||"")}">Izbriši</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  // brisanje
+  document.querySelectorAll("[data-del]").forEach(btn=>{
+    btn.onclick = async () => {
+      if(!confirm("Izbrišem ta dokument in vse povezane podatke?")) return;
+      btn.disabled=true; btn.innerHTML='<span class="loader"></span>';
+      try{
+        await TutorDB.deleteDocument(btn.dataset.del, btn.dataset.path||null);
+        location.reload();
+      }catch(e){ alert("Napaka: "+e.message); btn.disabled=false; btn.textContent="Izbriši"; }
+    };
+  });
+})();
+</script>
+</body>
+</html>

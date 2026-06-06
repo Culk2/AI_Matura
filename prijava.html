@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prijava — AI Tutor</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
+<style>
+  .auth-wrap{max-width:420px;margin:8vh auto 0;padding:0 18px}
+  .tabs{display:flex;gap:8px;margin-bottom:18px}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:10px;cursor:pointer;border:1px solid var(--border);
+    background:var(--panel2);color:var(--muted);font-weight:600;font-size:14px}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .center-logo{text-align:center;margin-bottom:18px}
+  .center-logo .logo{margin:0 auto 10px}
+  .center-logo h1{font-size:22px;margin:0}
+  .center-logo p{margin:4px 0 0;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="center-logo">
+    <div class="logo">🎓</div>
+    <h1>AI Tutor</h1>
+    <p>Prijavi se in nadaljuj učenje za maturo</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" id="tabLogin">Prijava</div>
+      <div class="tab" id="tabReg">Registracija</div>
+    </div>
+
+    <!-- PRIJAVA -->
+    <div id="formLogin">
+      <label class="lbl">Email</label>
+      <input class="field" type="email" id="loginEmail" autocomplete="email">
+      <label class="lbl">Geslo</label>
+      <input class="field" type="password" id="loginPass" autocomplete="current-password">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="loginBtn" style="width:100%;justify-content:center">Prijava</button>
+      </div>
+    </div>
+
+    <!-- REGISTRACIJA -->
+    <div id="formReg" class="hidden">
+      <label class="lbl">Email</label>
+      <input class="field" type="email" id="regEmail" autocomplete="email">
+      <label class="lbl">Uporabniško ime</label>
+      <input class="field" type="text" id="regUser" autocomplete="username">
+      <label class="lbl">Geslo (vsaj 6 znakov)</label>
+      <input class="field" type="password" id="regPass" autocomplete="new-password">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="regBtn" style="width:100%;justify-content:center">Ustvari račun</button>
+      </div>
+    </div>
+
+    <div id="msg" class="err"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/config.js"></script>
+<script src="/supabase-client.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const msg = (t, ok=false)=>{ const m=$("msg"); m.textContent=t; m.className = ok?"ok":"err"; };
+
+// Če je že prijavljen -> na dashboard
+(async () => {
+  if (window.TutorDB) {
+    const u = await TutorDB.currentUser();
+    if (u) location.href = "/dashboard.html";
+  }
+})();
+
+// Tabi
+function setTab(login){
+  $("tabLogin").classList.toggle("active", login);
+  $("tabReg").classList.toggle("active", !login);
+  $("formLogin").classList.toggle("hidden", !login);
+  $("formReg").classList.toggle("hidden", login);
+  msg("");
+}
+$("tabLogin").onclick = ()=>setTab(true);
+$("tabReg").onclick   = ()=>setTab(false);
+
+// Prijava
+$("loginBtn").onclick = async () => {
+  const email=$("loginEmail").value.trim(), pass=$("loginPass").value;
+  if(!email||!pass){ msg("Vnesi email in geslo."); return; }
+  $("loginBtn").disabled=true; $("loginBtn").innerHTML='<span class="loader"></span> Prijavljam…';
+  try{
+    await TutorDB.login(email, pass);
+    location.href = "/dashboard.html";
+  }catch(e){
+    msg("Napaka pri prijavi: " + (e.message||e));
+    $("loginBtn").disabled=false; $("loginBtn").textContent="Prijava";
+  }
+};
+
+// Registracija
+$("regBtn").onclick = async () => {
+  const email=$("regEmail").value.trim(), user=$("regUser").value.trim(), pass=$("regPass").value;
+  if(!email||!user||!pass){ msg("Izpolni vsa polja."); return; }
+  if(pass.length<6){ msg("Geslo mora imeti vsaj 6 znakov."); return; }
+  $("regBtn").disabled=true; $("regBtn").innerHTML='<span class="loader"></span> Ustvarjam…';
+  try{
+    const data = await TutorDB.register(email, user, pass);
+    if(data.session){
+      location.href = "/dashboard.html";           // email-potrditev izklopljena
+    }else{
+      msg("Račun ustvarjen! Preveri email in potrdi registracijo, nato se prijavi.", true);
+      $("regBtn").disabled=false; $("regBtn").textContent="Ustvari račun";
+      setTab(true);
+    }
+  }catch(e){
+    msg("Napaka pri registraciji: " + (e.message||e));
+    $("regBtn").disabled=false; $("regBtn").textContent="Ustvari račun";
+  }
+};
+
+// Enter za prijavo
+$("loginPass").addEventListener("keydown", e=>{ if(e.key==="Enter") $("loginBtn").click(); });
+$("regPass").addEventListener("keydown", e=>{ if(e.key==="Enter") $("regBtn").click(); });
+</script>
+</body>
+</html>
