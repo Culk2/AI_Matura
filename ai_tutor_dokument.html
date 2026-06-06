@@ -394,19 +394,81 @@ if("speechSynthesis"in window){ speechSynthesis.onvoiceschanged=loadVoices; load
 
 // ===================== GOVORNI VNOS (STT) =====================
 let recog=null, recording=false, finalText="";
+// Jeziki, ki jih poskusimo po vrsti (če slovenščina ni podprta, samodejno preklopi)
+const STT_LANGS=["sl-SI","hr-HR","en-US"];
+let sttLangIdx=0;
+const setInterim = m => { $("interim").textContent = m||""; };
+
+// Predhodno preveri / sproži dovoljenje za mikrofon (pogosto odpravi tiho odpoved)
+async function ensureMicPermission(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());   // takoj sprosti
+    return true;
+  }catch(_){ return false; }
+}
+
 function buildRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return null;
-  const r=new SR(); r.lang="sl-SI"; r.continuous=true; r.interimResults=true;
-  r.onresult=e=>{ let interim=""; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) finalText+=t+" "; else interim+=t; } $("answerArea").value=finalText+interim; $("interim").textContent=interim?"Slišim: "+interim:""; };
-  r.onend=()=>{ if(recording){ try{r.start();}catch(_){} } };
-  r.onerror=()=>{}; return r;
+  const r=new SR(); r.lang=STT_LANGS[sttLangIdx]; r.continuous=true; r.interimResults=true;
+  r.onstart=()=>setInterim("Poslušam…");
+  r.onresult=e=>{
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText+=t+" "; else interim+=t;
+    }
+    $("answerArea").value=finalText+interim;
+    setInterim(interim?("Slišim: "+interim):"Poslušam…");
+  };
+  r.onerror=ev=>{
+    const err=ev.error;
+    if(err==="no-speech"||err==="aborted") return;          // onend bo ponovno zagnal
+    if(err==="not-allowed"||err==="service-not-allowed"){
+      stopMic(); $("examErr").textContent="Brskalnik nima dovoljenja za mikrofon. Klikni ikono ob naslovu strani (🔒) → Mikrofon → Dovoli, nato osveži stran.";
+    } else if(err==="audio-capture"){
+      stopMic(); $("examErr").textContent="Mikrofona ni mogoče najti. Preveri, da je priključen in izbran v sistemu.";
+    } else if(err==="network"){
+      stopMic(); $("examErr").textContent="Govorni vnos potrebuje internetno povezavo (uporablja spletno storitev). Preveri povezavo.";
+    } else if(err==="language-not-supported"){
+      if(sttLangIdx<STT_LANGS.length-1){
+        sttLangIdx++; recog=null;                            // ob ponovnem zagonu zgradi z naslednjim jezikom
+        setInterim("Slovenščina ni podprta — preklapljam na "+STT_LANGS[sttLangIdx]+"…");
+      } else {
+        stopMic(); $("examErr").textContent="Tvoj brskalnik za govorni vnos ne podpira teh jezikov. Odgovor lahko vpišeš ročno (Chrome ima običajno najboljšo podporo).";
+      }
+    } else {
+      setInterim("Napaka mikrofona: "+err);
+    }
+  };
+  r.onend=()=>{
+    if(recording){ setTimeout(()=>{ if(!recording) return; if(!recog) recog=buildRecognition(); try{recog.start();}catch(_){} }, 250); }
+  };
+  return r;
 }
-function toggleMic(){
+
+function stopMic(){
+  recording=false; $("micBtn").classList.remove("rec"); setInterim("");
+  if(recog){ try{recog.stop();}catch(_){} }
+}
+
+async function toggleMic(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ $("examErr").textContent="Govorni vnos ni podprt v tem brskalniku (uporabi Chrome ali Edge)."; return; }
+  if(recording){ stopMic(); return; }
+
+  $("examErr").textContent="";
+  setInterim("Preverjam mikrofon…");
+  const ok=await ensureMicPermission();
+  if(!ok){ setInterim(""); $("examErr").textContent="Dostop do mikrofona je zavrnjen ali blokiran. Dovoli mikrofon za to stran in poskusi znova."; return; }
+
   if(!recog) recog=buildRecognition();
-  if(!recog){ $("examErr").textContent="Govorni vnos ni podprt (uporabi Chrome)."; return; }
-  recording=!recording; $("micBtn").classList.toggle("rec",recording);
-  if(recording){ finalText=$("answerArea").value?$("answerArea").value+" ":""; speechSynthesis.cancel(); try{recog.start();}catch(_){} }
-  else { try{recog.stop();}catch(_){} $("interim").textContent=""; }
+  recording=true; $("micBtn").classList.add("rec");
+  finalText=$("answerArea").value?$("answerArea").value+" ":"";
+  speechSynthesis.cancel();
+  try{ recog.start(); }
+  catch(_){ try{recog.stop();}catch(__){} setTimeout(()=>{ try{recog.start();}catch(___){} },200); }
 }
 
 // ===================== DOGODKI =====================

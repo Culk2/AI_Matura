@@ -3,109 +3,106 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Matura — Učni portal</title>
+<title>Matura — Učni portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css">
 <style>
-  :root{
-    --bg:#0a0c12; --panel:#10131b; --line:rgba(255,255,255,.07);
-    --text:#eef1f6; --muted:#8b93a3; --accent:#4f8ef7;
-    --green:#3ec97a; --amber:#f2b84b; --radius:18px;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;color:var(--text);font-family:'Sora',system-ui,sans-serif;line-height:1.55;
-    background:
-      radial-gradient(700px 380px at 12% -5%, rgba(79,142,247,.14), transparent 60%),
-      radial-gradient(600px 400px at 95% 0%, rgba(123,92,255,.10), transparent 60%),
-      var(--bg);}
-  .wrap{max-width:1140px;margin:0 auto;padding:30px 28px 60px}
-  a{text-decoration:none;color:inherit}
-  .mono{font-family:'JetBrains Mono',monospace}
-
-  /* TOP / BRAND */
-  .top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-  .brand{display:flex;align-items:center;gap:14px}
-  .logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(140deg,#5b8cff,#8b5cff);
-    display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 8px 24px rgba(91,140,255,.4)}
-  .brand h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.01em}
-  .brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
-  .login{font-size:13px;color:var(--muted);border:1px solid var(--line);padding:9px 16px;border-radius:10px;
-    transition:.15s;background:rgba(255,255,255,.02)}
-  .login:hover{border-color:var(--accent);color:var(--text)}
-
   /* HERO */
-  .eyebrow{margin:68px 0 18px;font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.18em;
-    text-transform:uppercase;color:var(--muted)}
-  .headline{font-size:clamp(44px,8.5vw,88px);font-weight:800;line-height:.98;letter-spacing:-.03em;margin:0;max-width:13ch}
-  .headline .blue{color:var(--accent)}
-  .lead{max-width:560px;margin:24px 0 0;color:var(--muted);font-size:16px}
+  .hero{position:relative;text-align:center;padding:46px 16px 30px;margin-bottom:10px}
+  .hero::before{content:"";position:absolute;inset:-40px 0 0;z-index:-1;
+    background:radial-gradient(600px 300px at 50% 0%, rgba(123,92,255,.18), transparent 70%)}
+  .badge{display:inline-block;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent);
+    border:1px solid var(--border);background:var(--panel2);padding:5px 12px;border-radius:999px;margin-bottom:18px}
+  .hero h1{font-size:clamp(28px,6vw,46px);font-weight:800;margin:0 0 12px;letter-spacing:-.02em;line-height:1.1}
+  .hero h1 .grad{background:linear-gradient(120deg,var(--accent),#7b5cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{max-width:540px;margin:0 auto 24px;color:var(--muted);font-size:16px}
+  .hero .btn-row{justify-content:center}
+  .btn-lg{padding:13px 24px;font-size:15px}
 
-  /* KARTICE */
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:42px}
-  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    padding:26px;transition:.18s;display:flex;flex-direction:column;min-height:230px}
-  .card:hover{transform:translateY(-4px);border-color:rgba(79,142,247,.5);box-shadow:0 16px 40px rgba(0,0,0,.4)}
-  .card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:auto}
-  .ico{width:46px;height:46px;border-radius:13px;background:#1a1f2b;border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-size:22px}
-  .pill{font-family:'JetBrains Mono',monospace;font-size:12px;padding:5px 13px;border-radius:999px;white-space:nowrap}
-  .pill.green{color:var(--green);border:1px solid rgba(62,201,122,.45);background:rgba(62,201,122,.08)}
-  .pill.amber{color:var(--amber);border:1px solid rgba(242,184,75,.45);background:rgba(242,184,75,.08)}
-  .card h3{margin:26px 0 8px;font-size:21px;font-weight:700}
-  .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
-  .card .cta{display:flex;align-items:center;gap:12px;margin-top:22px;font-weight:600;font-size:15px}
-  .arrow{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:flex;
-    align-items:center;justify-content:center;font-size:16px;transition:.18s}
-  .card:hover .arrow{transform:translateX(3px);box-shadow:0 6px 16px rgba(79,142,247,.5)}
+  /* GRID KARTIC */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:8px}
+  .tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:22px;transition:.18s;text-decoration:none;color:var(--text);position:relative;overflow:hidden}
+  .tile:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .tile .ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:24px;margin-bottom:14px}
+  .tile h3{margin:0 0 6px;font-size:17px}
+  .tile p{margin:0;color:var(--muted);font-size:13px;flex:1}
+  .tile .go{margin-top:14px;font-size:13px;font-weight:600;color:var(--accent)}
+  .tile.feature{background:linear-gradient(150deg,rgba(79,142,247,.12),var(--panel));border-color:rgba(79,142,247,.4)}
+  .pill-new{position:absolute;top:14px;right:14px;font-size:10px;font-weight:700;letter-spacing:.05em;
+    background:var(--accent);color:#fff;padding:3px 8px;border-radius:999px}
+  .ico-a{background:var(--accent-soft);color:var(--accent)}
+  .ico-b{background:rgba(62,201,122,.15);color:var(--good)}
+  .ico-c{background:rgba(242,184,75,.15);color:var(--partial)}
 
-  footer{margin-top:60px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  .sec-title{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:30px 0 12px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="top">
+  <div class="topbar">
     <div class="brand">
       <div class="logo">🎓</div>
-      <div>
-        <h1>AI Matura</h1>
-        <p>Učenje, ponavljanje in ustno preverjanje znanja</p>
-      </div>
+      <div><h1>Učni portal</h1><p>Priprava na maturo</p></div>
     </div>
-    <a class="login" href="/prijava.html">Prijava / Račun</a>
+    <div class="userbox">
+      <a class="btn btn-primary btn-sm" href="/prijava.html">Prijava / Račun</a>
+    </div>
   </div>
 
   <!-- HERO -->
-  <div class="eyebrow">Izberi način učenja</div>
-  <h1 class="headline">Pripravi se na maturo z <span class="blue">AI pomočnikom.</span></h1>
-  <p class="lead">Izberi pripravljen sklop za računalništvo ali naloži svoje gradivo, da ti AI
-     pripravi vprašanja in oceni odgovore.</p>
+  <section class="hero">
+    <span class="badge">AI-podprto učenje</span>
+    <h1>Uči se pametno za <span class="grad">maturo</span></h1>
+    <p>Naloži svojo snov ali izberi predmet. AI te ustno izpraša, oceni razumevanje
+       in pogosteje ponavlja tisto, kar ti gre slabše.</p>
+    <div class="btn-row">
+      <a class="btn btn-primary btn-lg" href="/prijava.html">🚀 Začni z AI Tutorjem</a>
+      <a class="btn btn-ghost btn-lg" href="#predmeti">Predmeti</a>
+    </div>
+  </section>
 
-  <!-- KARTICE -->
+  <!-- GLAVNA FUNKCIJA -->
   <div class="grid">
-    <a class="card" href="/racunalnistvo/racunalnistvo_ai_ucitelj.html">
-      <div class="card-top">
-        <div class="ico">💻</div>
-        <span class="pill green">79 vprašanj</span>
-      </div>
-      <h3>Računalništvo</h3>
-      <p>Glasovni učni pomočnik za poklicno maturo iz računalništva s pripravljenimi temami,
-         napredkom in AI ocenjevanjem.</p>
-      <div class="cta">Odpri sklop <span class="arrow">→</span></div>
-    </a>
-
-    <a class="card" href="/prijava.html">
-      <div class="card-top">
-        <div class="ico">📄</div>
-        <span class="pill amber">PDF / DOCX / TXT</span>
-      </div>
+    <a class="tile feature" href="/prijava.html">
+      <span class="pill-new">NOVO</span>
+      <div class="ico ico-a">🤖</div>
       <h3>AI Tutor iz dokumenta</h3>
-      <p>Naloži dokument ali prilepi besedilo. AI iz gradiva pripravi vprašanja, te izpraša
-         in sproti pokaže, kaj manjka.</p>
-      <div class="cta">Naloži gradivo <span class="arrow">→</span></div>
+      <p>Naloži PDF, Word ali besedilo. AI ustvari vprašanja, te izprašuje in ocenjuje po pomenu —
+         vse shranjeno na tvojem računu, da lahko nadaljuješ kadarkoli.</p>
+      <span class="go">Prijava / Dashboard →</span>
     </a>
   </div>
 
-  <footer>Projekt AI Matura · začetni meni</footer>
+  <!-- PREDMETI -->
+  <div class="sec-title" id="predmeti">Predmeti</div>
+  <div class="grid">
+    <a class="tile" href="/racunalnistvo/racunalnistvo.html">
+      <div class="ico ico-a">💻</div>
+      <h3>Računalništvo</h3>
+      <p>79 vprašanj iz 5 sklopov: pregled, flash kartice, kviz in AI učitelj z glasovnim vnosom.</p>
+      <span class="go">Odpri →</span>
+    </a>
+
+    <a class="tile" href="/slovenscina/slovenscina.html">
+      <div class="ico ico-b">📖</div>
+      <h3>Slovenščina</h3>
+      <p>Gradivo in vaje za maturo iz slovenščine.</p>
+      <span class="go">Odpri →</span>
+    </a>
+
+    <a class="tile" href="/prijava.html">
+      <div class="ico ico-c">➕</div>
+      <h3>Dodaj svojo snov</h3>
+      <p>Katerikoli predmet — naloži svoje zapiske ali učbenik in pusti, da AI naredi kviz.</p>
+      <span class="go">Naloži dokument →</span>
+    </a>
+  </div>
+
+  <footer>Učni portal za maturo · izdelano z 💙</footer>
 </div>
 </body>
 </html>
